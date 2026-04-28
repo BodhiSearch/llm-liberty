@@ -8,7 +8,11 @@ Runs the Claude Code OAuth flow in your default browser, exchanges the auth code
 
 ## Example output
 
+The JSON envelope is copied to the clipboard by default (`--no-clipboard` to opt out).
+
 ```text
+json below is copied to clipboard
+---
 {
   "provider": "anthropic",
   "access_token": "sk-ant-oat01-…",
@@ -41,6 +45,7 @@ curl -X POST 'https://api.anthropic.com/v1/messages' \
 
 - `--no-verify` — skip the post-login API check (offline / CI use).
 - `--no-example` — suppress the `---` separator and `curl` block; stdout becomes pure JSON for piping.
+- `--no-clipboard` — skip copying the JSON envelope to the system clipboard; stdout reverts to the plain `{…}\n---\ncurl` layout.
 
 ## Calling the API with the resulting token
 

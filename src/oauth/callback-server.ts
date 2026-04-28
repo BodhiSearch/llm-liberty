@@ -64,7 +64,7 @@ export function waitForCallback(opts: CallbackOptions): Promise<URL> {
       if (err.code === "EADDRINUSE") {
         reject(
           new LibertyError(
-            `Port ${opts.port} is already in use. Anthropic's OAuth client has this port hard-coded — free it (e.g. \`lsof -i :${opts.port}\`) and retry.`,
+            `Port ${opts.port} is already in use. The provider's OAuth client has this port hard-coded — free it (e.g. \`lsof -i :${opts.port}\`) and retry.`,
             err,
           ),
         );

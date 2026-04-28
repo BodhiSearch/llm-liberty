@@ -5,8 +5,8 @@ export interface PkcePair {
   challenge: string;
 }
 
-export function generatePkce(): PkcePair {
-  const verifier = base64url(randomBytes(32));
+export function generatePkce(bytes = 32): PkcePair {
+  const verifier = base64url(randomBytes(bytes));
   const challenge = base64url(createHash("sha256").update(verifier).digest());
   return { verifier, challenge };
 }

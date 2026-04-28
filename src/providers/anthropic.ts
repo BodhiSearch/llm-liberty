@@ -47,6 +47,7 @@ interface MessagesResponse {
 export interface LoginOptions {
   verify: boolean;
   example: boolean;
+  clipboard: boolean;
 }
 
 export async function loginAnthropic(opts: LoginOptions): Promise<void> {
@@ -99,7 +100,7 @@ export async function loginAnthropic(opts: LoginOptions): Promise<void> {
   }
 
   const example = opts.example ? buildCurlExample(creds, pickedModel) : null;
-  emit(creds, example);
+  await emit(creds, example, { clipboard: opts.clipboard });
 }
 
 function buildAuthorizeUrl(verifier: string, challenge: string): string {

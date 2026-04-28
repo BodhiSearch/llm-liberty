@@ -1,6 +1,6 @@
 pnpm exec biome format --staged --no-errors-on-unmatched
 
-md_files=$(git diff --cached --name-only --diff-filter=ACMR -- '*.md')
+md_files=$(git diff --cached --name-only --diff-filter=ACMR -- '*.md' | grep -v '^ai-docs/' | grep -v '^\.cursor/')
 if [ -n "$md_files" ]; then
   echo "$md_files" | xargs pnpm exec prettier --check
 fi

@@ -1,3 +1,5 @@
+import clipboard from "clipboardy";
+
 export interface ProviderCredentials {
   provider: string;
   access_token: string;
@@ -19,8 +21,29 @@ export interface CurlExample {
   body: unknown;
 }
 
-export function emit(creds: ProviderCredentials, example: CurlExample | null): void {
-  process.stdout.write(`${JSON.stringify(creds, null, 2)}\n`);
+export async function emit(
+  creds: ProviderCredentials,
+  example: CurlExample | null,
+  opts: { clipboard: boolean },
+): Promise<void> {
+  const json = JSON.stringify(creds, null, 2);
+  let copied = false;
+
+  if (opts.clipboard) {
+    try {
+      await clipboard.write(json);
+      copied = true;
+    } catch (err) {
+      const reason = err instanceof Error ? err.message : String(err);
+      process.stderr.write(`Clipboard unavailable: ${reason}. Continuing without copying.\n`);
+    }
+  }
+
+  if (copied) {
+    process.stdout.write("json below is copied to clipboard\n");
+    process.stdout.write("---\n");
+  }
+  process.stdout.write(`${json}\n`);
   if (example) {
     process.stdout.write("---\n");
     process.stdout.write(`${renderCurl(example)}\n`);
