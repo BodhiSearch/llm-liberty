@@ -8,3 +8,4 @@ Pick a topic:
 - [**anthropic.md**](anthropic.md) — `login anthropic`: Claude / Claude Code.
 - [**openai-codex.md**](openai-codex.md) — `login openai-codex`: ChatGPT / Codex.
 - [**google-gemini.md**](google-gemini.md) — `login google-gemini`: Google Gemini / gemini-cli.
+- [**github-copilot.md**](github-copilot.md) — `login github-copilot`: GitHub Copilot.

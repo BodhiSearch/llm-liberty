@@ -17,8 +17,7 @@ Opens your default browser to the provider's OAuth page, runs a local HTTP serve
 - **Anthropic** (Claude / Claude Code) — see [`docs/anthropic.md`](docs/anthropic.md)
 - **OpenAI Codex** (ChatGPT / Codex CLI) — see [`docs/openai-codex.md`](docs/openai-codex.md)
 - **Google Gemini** (gemini-cli / Code Assist) — see [`docs/google-gemini.md`](docs/google-gemini.md)
-
-_(More coming — GitHub Copilot.)_
+- **GitHub Copilot** — see [`docs/github-copilot.md`](docs/github-copilot.md)
 
 ## Documentation
 

@@ -62,7 +62,7 @@ curl -X POST 'https://cloudcode-pa.googleapis.com/v1internal:generateContent' \
 
 ## Calling the API with the resulting token
 
-OAuth tokens issued under the gemini-cli `client_id` are scoped to a **private** Google API at `https://cloudcode-pa.googleapis.com/v1internal` — *not* the public `https://generativelanguage.googleapis.com/v1beta` you may know from the API-key flow. Sending these tokens to the public endpoint returns `403 ACCESS_TOKEN_SCOPE_INSUFFICIENT`. Use `extra.generate_content_url` (or `extra.stream_generate_content_url` for SSE streaming).
+OAuth tokens issued under the gemini-cli `client_id` are scoped to a **private** Google API at `https://cloudcode-pa.googleapis.com/v1internal` — _not_ the public `https://generativelanguage.googleapis.com/v1beta` you may know from the API-key flow. Sending these tokens to the public endpoint returns `403 ACCESS_TOKEN_SCOPE_INSUFFICIENT`. Use `extra.generate_content_url` (or `extra.stream_generate_content_url` for SSE streaming).
 
 The internal endpoint also uses a **wrapped** request body — the user-facing `contents` / `generationConfig` go inside a `request: {…}` envelope, alongside top-level `model` and `project` fields:
 
@@ -71,9 +71,7 @@ The internal endpoint also uses a **wrapped** request body — the user-facing `
   "model": "gemini-2.5-flash",
   "project": "<value from body.project>",
   "request": {
-    "contents": [
-      { "role": "user", "parts": [{ "text": "your message here" }] }
-    ],
+    "contents": [{ "role": "user", "parts": [{ "text": "your message here" }] }],
     "generationConfig": { "maxOutputTokens": 256 }
   }
 }
