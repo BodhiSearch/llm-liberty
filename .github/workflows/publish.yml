@@ -29,6 +29,9 @@ jobs:
         run: |
           TAG_VERSION="${GITHUB_REF#refs/tags/v}"
           echo "tag_version=$TAG_VERSION" >> "$GITHUB_OUTPUT"
+          IFS='.' read -ra PARTS <<< "$TAG_VERSION"
+          NEXT_MINOR=$((${PARTS[1]} + 1))
+          echo "next_version=${PARTS[0]}.$NEXT_MINOR.0-dev" >> "$GITHUB_OUTPUT"
 
       - name: Sync package.json version with tag
         run: pnpm version "${{ steps.version.outputs.tag_version }}" --no-git-tag-version --allow-same-version
@@ -62,3 +65,17 @@ jobs:
           prerelease: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Configure git for version bump
+        run: |
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git config --global user.name "github-actions[bot]"
+
+      - name: Bump to next dev version
+        run: |
+          git fetch --depth=1 origin main
+          git checkout -B main origin/main
+          pnpm version "${{ steps.version.outputs.next_version }}" --no-git-tag-version
+          git add package.json
+          git commit -m "chore: bump version to ${{ steps.version.outputs.next_version }} after release"
+          git push origin main
