@@ -23,6 +23,7 @@ jobs:
         with:
           node-version: 22
           cache: "pnpm"
+          registry-url: "https://registry.npmjs.org"
 
       - name: Extract version from tag
         id: version
@@ -40,9 +41,7 @@ jobs:
       - run: pnpm build
 
       - name: Publish
-        run: |
-          echo "//registry.npmjs.org/:_authToken=" > .npmrc
-          npm publish --access public --provenance
+        run: npm publish --access public --provenance
 
       - name: Verify publish
         run: |
