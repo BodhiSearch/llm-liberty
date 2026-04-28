@@ -1,6 +1,7 @@
 import { Command } from "commander";
 import { LibertyError } from "./errors.js";
 import { loginAnthropic } from "./providers/anthropic.js";
+import { loginGoogleGemini } from "./providers/google-gemini.js";
 import { loginOpenAICodex } from "./providers/openai-codex.js";
 
 interface LoginFlags {
@@ -51,9 +52,16 @@ async function dispatch(provider: string, flags: LoginFlags): Promise<void> {
         clipboard: flags.clipboard,
       });
       return;
+    case "google-gemini":
+      await loginGoogleGemini({
+        verify: flags.verify,
+        example: flags.example,
+        clipboard: flags.clipboard,
+      });
+      return;
     default:
       throw new LibertyError(
-        `Unknown provider: ${provider}. Supported providers: anthropic, openai-codex.`,
+        `Unknown provider: ${provider}. Supported providers: anthropic, openai-codex, google-gemini.`,
       );
   }
 }

@@ -7,3 +7,4 @@ Pick a topic:
 - [**security.md**](security.md) — token handling rules: what reaches stdout, what never gets logged, why we don't persist by default.
 - [**anthropic.md**](anthropic.md) — `login anthropic`: Claude / Claude Code.
 - [**openai-codex.md**](openai-codex.md) — `login openai-codex`: ChatGPT / Codex.
+- [**google-gemini.md**](google-gemini.md) — `login google-gemini`: Google Gemini / gemini-cli.

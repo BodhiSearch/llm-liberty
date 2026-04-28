@@ -38,7 +38,7 @@ Single package — not a workspace. If we later want to expose the OAuth flows a
 
 ## Provider `client_id` policy
 
-The `client_id` for each provider is the well-known one its official CLI uses. Embed it base64-encoded in `src/providers/<name>.ts` and reference it **nowhere else** — not README, not CLAUDE.md, not changelogs, not commit messages, not docs/. The source file is the single record. The user authenticating with their own provider account is what makes the flow legitimate; the client_id is just the public identifier the official CLI uses.
+The `client_id` for each provider is the well-known one its official CLI uses. Embed it hex-encoded in `src/providers/<name>.ts` and reference it **nowhere else** — not README, not CLAUDE.md, not changelogs, not commit messages, not docs/. The source file is the single record. The user authenticating with their own provider account is what makes the flow legitimate; the client_id is just the public identifier the official CLI uses.
 
 ## Where to look next
 
