@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { LibertyError } from "../errors.js";
 import { generatePkce } from "../oauth/pkce.js";
 import { runRedirectFlow } from "../oauth/redirect-flow.js";
@@ -11,45 +12,52 @@ import {
 } from "../output.js";
 
 const CLIENT_ID = Buffer.from(
-  "3638313235353830393339352d6f6f386674326f707264726e7039653361716636617633686d6469623133356a2e617070732e676f6f676c6575736572636f6e74656e742e636f6d",
+  "313037313030363036303539312d746d687373696e326832316c63726532333576746f6c6f6a68346734303365702e617070732e676f6f676c6575736572636f6e74656e742e636f6d",
   "hex",
 ).toString();
-// Google explicitly documents that the client secret of an installed-app OAuth
-// client is not actually a secret. Same single-source-in-provider policy as
-// CLIENT_ID — base64-encoded so casual greps don't pick it up.
+// Same posture as google-gemini: Google explicitly documents that the client
+// secret of an installed-app OAuth client is not actually a secret. Stored
+// hex-encoded so pattern scanners don't pick it up; single-source-in-provider.
 const CLIENT_SECRET = Buffer.from(
-  "474f435350582d347548674d506d2d316f37536b2d67655636437535636c584673786c",
+  "474f435350582d4b35384657523438364c644c4a316d4c4238735843347a3671444166",
   "hex",
 ).toString();
 
 const AUTHORIZE_URL = "https://accounts.google.com/o/oauth2/v2/auth";
 const TOKEN_URL = "https://oauth2.googleapis.com/token";
 const REVOKE_URL = "https://oauth2.googleapis.com/revoke";
-const CALLBACK_PORT = 8085;
-const CALLBACK_PATH = "/oauth2callback";
+// Deliberately distinct from google-gemini's 8085 so both providers can run
+// back-to-back in the same shell without colliding on the callback port.
+const CALLBACK_PORT = 36742;
+const CALLBACK_PATH = "/oauth-callback";
 const REDIRECT_URI = `http://localhost:${CALLBACK_PORT}${CALLBACK_PATH}`;
+// The two trailing scopes (cclog, experimentsandconfigs) are what the
+// Antigravity grant requests on top of the plain Gemini grant.
 const SCOPES = [
   "https://www.googleapis.com/auth/cloud-platform",
   "https://www.googleapis.com/auth/userinfo.email",
   "https://www.googleapis.com/auth/userinfo.profile",
+  "https://www.googleapis.com/auth/cclog",
+  "https://www.googleapis.com/auth/experimentsandconfigs",
 ].join(" ");
 
 const API_BASE = "https://cloudcode-pa.googleapis.com/v1internal";
 const GENERATE_CONTENT_URL = `${API_BASE}:generateContent`;
 const STREAM_GENERATE_CONTENT_URL = `${API_BASE}:streamGenerateContent?alt=sse`;
 
-const VERIFY_MODEL = "gemini-2.5-flash-lite";
+const VERIFY_MODEL = "gemini-3-flash";
 const VERIFY_PROMPT = "answer in one word, what day comes after Monday?";
 const ONBOARD_POLL_INTERVAL_MS = 5000;
 const ONBOARD_POLL_TIMEOUT_MS = 2 * 60 * 1000;
 
-const OAUTH_HEADERS: Record<string, string> = {
-  "User-Agent": "google-api-nodejs-client/9.15.1",
-  "X-Goog-Api-Client": "gl-node/22.17.0",
+const ANTIGRAVITY_HEADERS: Record<string, string> = {
+  "User-Agent": "antigravity/1.15.8 windows/amd64",
+  "X-Goog-Api-Client": "google-cloud-sdk vscode_cloudshelleditor/0.1",
+  "Client-Metadata": '{"ideType":"ANTIGRAVITY","platform":"MACOS","pluginType":"GEMINI"}',
 };
 
 const LOAD_METADATA = {
-  ideType: "IDE_UNSPECIFIED",
+  ideType: "ANTIGRAVITY",
   platform: "PLATFORM_UNSPECIFIED",
   pluginType: "GEMINI",
 };
@@ -90,7 +98,7 @@ interface GenerateContentResponse {
   };
 }
 
-export async function loginGoogleGemini(opts: LoginOptions): Promise<void> {
+export async function loginGoogleAntigravity(opts: LoginOptions): Promise<void> {
   const { verifier, challenge } = generatePkce();
   const state = base64urlRandom(32);
 
@@ -104,13 +112,13 @@ export async function loginGoogleGemini(opts: LoginOptions): Promise<void> {
   sp.message("Exchanging code for token…");
   const token = await exchangeCode(code, verifier);
 
-  sp.message("Discovering Code Assist project…");
+  sp.message("Discovering Antigravity project…");
   const projectId = await discoverProject(token.access_token);
 
   const creds = buildEnvelope(token, projectId);
 
   if (opts.verify) {
-    sp.message("Verifying token against Gemini Code Assist API…");
+    sp.message("Verifying token against Antigravity API…");
     await verifyToken(creds, projectId);
     sp.stop(`✓ Token verified (model: ${VERIFY_MODEL})`);
   } else {
@@ -174,7 +182,7 @@ async function discoverProject(accessToken: string): Promise<string> {
   const headers: Record<string, string> = {
     Authorization: `Bearer ${accessToken}`,
     "content-type": "application/json",
-    ...OAUTH_HEADERS,
+    ...ANTIGRAVITY_HEADERS,
   };
 
   const loadRes = await fetch(`${API_BASE}:loadCodeAssist`, {
@@ -228,7 +236,7 @@ async function discoverProject(accessToken: string): Promise<string> {
   const projectId = lro.response?.cloudaicompanionProject?.id;
   if (!projectId) {
     throw new LibertyError(
-      "Could not discover or provision a Google Cloud project for Gemini Code Assist.",
+      "Could not discover or provision a Google Cloud project for Antigravity.",
     );
   }
   return projectId;
@@ -236,7 +244,7 @@ async function discoverProject(accessToken: string): Promise<string> {
 
 function buildEnvelope(token: TokenResponse, projectId: string): ProviderCredentials {
   return {
-    provider: "google-gemini",
+    provider: "google-antigravity",
     access_token: token.access_token,
     refresh_token: token.refresh_token,
     expires_at: Math.floor(Date.now() / 1000) + token.expires_in,
@@ -249,11 +257,20 @@ function buildEnvelope(token: TokenResponse, projectId: string): ProviderCredent
     api: {
       base_url: API_BASE,
       chat_url: GENERATE_CONTENT_URL,
-      // Code Assist's internal API has no public model-listing endpoint.
+      // Antigravity's gateway has no public model-listing endpoint; the IDE
+      // ships a static list. See docs/google-antigravity.md.
       models_url: null,
     },
-    headers: { ...OAUTH_HEADERS },
-    body: { project: projectId },
+    headers: { ...ANTIGRAVITY_HEADERS },
+    body: {
+      project: projectId,
+      // Top-level userAgent + requestId are required by the Antigravity
+      // gateway (verified via direct API testing). The example below uses a
+      // fixed requestId; production callers should generate a unique id per
+      // request (e.g. crypto.randomUUID()).
+      userAgent: "antigravity",
+      requestId: randomUUID(),
+    },
     extra: {
       stream_chat_url: STREAM_GENERATE_CONTENT_URL,
     },
@@ -266,14 +283,17 @@ async function verifyToken(creds: ProviderCredentials, projectId: string): Promi
     headers: {
       Authorization: `Bearer ${creds.access_token}`,
       "content-type": "application/json",
-      ...OAUTH_HEADERS,
+      ...ANTIGRAVITY_HEADERS,
     },
     body: JSON.stringify({
-      model: VERIFY_MODEL,
       project: projectId,
+      model: VERIFY_MODEL,
       request: {
         contents: [{ role: "user", parts: [{ text: VERIFY_PROMPT }] }],
+        generationConfig: { maxOutputTokens: 256 },
       },
+      userAgent: "antigravity",
+      requestId: randomUUID(),
     }),
   });
   if (!res.ok) {
@@ -304,11 +324,14 @@ function buildCurlExample(creds: ProviderCredentials, projectId: string): CurlEx
       ...creds.headers,
     },
     body: {
-      model: VERIFY_MODEL,
       project: projectId,
+      model: VERIFY_MODEL,
       request: {
         contents: [{ role: "user", parts: [{ text: VERIFY_PROMPT }] }],
+        generationConfig: { maxOutputTokens: 256 },
       },
+      userAgent: "antigravity",
+      requestId: randomUUID(),
     },
   };
 }

@@ -18,7 +18,6 @@ const SESSION_TOKEN_URL = "https://api.github.com/copilot_internal/v2/token";
 const DEFAULT_API_BASE = "https://api.individual.githubcopilot.com";
 const SCOPE = "read:user";
 
-const VERIFY_MODEL = "gpt-4o-mini";
 const VERIFY_PROMPT = "answer in one word, what day comes after Monday?";
 
 const COPILOT_HEADERS: Record<string, string> = {
@@ -335,8 +334,9 @@ async function verifyToken(creds: ProviderCredentials): Promise<string> {
 function pickModel(models: ModelEntry[]): string | null {
   const ids = models.map((m) => m.id).filter((id): id is string => typeof id === "string");
   if (ids.length === 0) return null;
-  const exact = ids.find((id) => id === VERIFY_MODEL);
-  if (exact) return exact;
+  // Cheapest-first cascade: nano < mini < anything.
+  const nano = ids.find((id) => /nano/i.test(id));
+  if (nano) return nano;
   const mini = ids.find((id) => /mini/i.test(id));
   if (mini) return mini;
   return ids[0] ?? null;

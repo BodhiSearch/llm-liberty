@@ -226,8 +226,14 @@ async function verifyToken(creds: ProviderCredentials): Promise<string> {
 function pickModel(models: Array<{ id?: string; slug?: string }>): string | null {
   const ids = models.map((m) => m.id ?? m.slug ?? "").filter(Boolean);
   if (ids.length === 0) return null;
-  const small = ids.find((id) => /mini|nano|haiku/i.test(id));
-  return small ?? ids[0] ?? null;
+  // Cheapest-first cascade: nano < mini < haiku < anything.
+  const nano = ids.find((id) => /nano/i.test(id));
+  if (nano) return nano;
+  const mini = ids.find((id) => /mini/i.test(id));
+  if (mini) return mini;
+  const haiku = ids.find((id) => /haiku/i.test(id));
+  if (haiku) return haiku;
+  return ids[0] ?? null;
 }
 
 // Parse an SSE response from the Codex /responses endpoint and return the

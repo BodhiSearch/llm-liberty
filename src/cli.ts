@@ -3,6 +3,7 @@ import { LibertyError } from "./errors.js";
 import type { LoginOptions } from "./output.js";
 import { loginAnthropic } from "./providers/anthropic.js";
 import { loginGitHubCopilot } from "./providers/github-copilot.js";
+import { loginGoogleAntigravity } from "./providers/google-antigravity.js";
 import { loginGoogleGemini } from "./providers/google-gemini.js";
 import { loginOpenAICodex } from "./providers/openai-codex.js";
 
@@ -10,6 +11,7 @@ const PROVIDERS: Record<string, (opts: LoginOptions) => Promise<void>> = {
   anthropic: loginAnthropic,
   "openai-codex": loginOpenAICodex,
   "google-gemini": loginGoogleGemini,
+  "google-antigravity": loginGoogleAntigravity,
   "github-copilot": loginGitHubCopilot,
 };
 
