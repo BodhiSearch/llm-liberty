@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import https from "https";
+import https from "node:https";
 
 function fetchNpmVersion(packageName) {
   return new Promise((resolve) => {

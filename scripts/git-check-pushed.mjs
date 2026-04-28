@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
-import { execSync } from "child_process";
-import readline from "readline";
+import { execSync } from "node:child_process";
+import readline from "node:readline";
 
 function executeGitCommand(command) {
   try {

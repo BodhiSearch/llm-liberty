@@ -31,6 +31,7 @@
     "cli": "tsx src/cli.ts",
     "test": "vitest run",
     "test:watch": "vitest",
+    "check": "tsc --noEmit && biome check .",
     "typecheck": "tsc --noEmit",
     "lint": "biome check .",
     "format": "biome format --write . && prettier --write '**/*.md'",
