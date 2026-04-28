@@ -34,9 +34,16 @@ json below is copied to clipboard
   "refresh_token": "ghu_…",
   "expires_at": 1761686400,
   "auth": { "in": "header", "key": "Authorization", "scheme": "Bearer" },
-  "authorize_url": "https://github.com/login/device/code",
-  "token_url": "https://api.github.com/copilot_internal/v2/token",
-  "logout_url": null,
+  "oauth": {
+    "authorize_url": "https://github.com/login/device/code",
+    "token_url": "https://api.github.com/copilot_internal/v2/token",
+    "revoke_url": null
+  },
+  "api": {
+    "base_url": "https://api.individual.githubcopilot.com",
+    "chat_url": "https://api.individual.githubcopilot.com/chat/completions",
+    "models_url": "https://api.individual.githubcopilot.com/models"
+  },
   "headers": {
     "User-Agent": "GitHubCopilotChat/0.35.0",
     "Editor-Version": "vscode/1.107.0",
@@ -44,14 +51,7 @@ json below is copied to clipboard
     "Copilot-Integration-Id": "vscode-chat"
   },
   "body": { "stream": true },
-  "extra": {
-    "github_token": "ghu_…",
-    "api_base": "https://api.individual.githubcopilot.com",
-    "models_url": "https://api.individual.githubcopilot.com/models",
-    "chat_completions_url": "https://api.individual.githubcopilot.com/chat/completions",
-    "is_enterprise": false,
-    "session_token_url": "https://api.github.com/copilot_internal/v2/token"
-  }
+  "extra": { "is_enterprise": false }
 }
 ---
 curl -X POST 'https://api.individual.githubcopilot.com/chat/completions' \
@@ -72,7 +72,7 @@ curl -X POST 'https://api.individual.githubcopilot.com/chat/completions' \
   }'
 ```
 
-For Copilot Enterprise users, `extra.api_base` will instead be `https://api.<tenant>.githubcopilot.com` (derived from the `proxy-ep=…` segment of the session token by swapping `proxy.` → `api.`) and `extra.is_enterprise` will be `true`. The `curl` example points at the same resolved host.
+For Copilot Enterprise users, `api.base_url` will instead be `https://api.<tenant>.githubcopilot.com` (derived from the `proxy-ep=…` segment of the session token by swapping `proxy.` → `api.`) and `extra.is_enterprise` will be `true`. The `curl` example, `chat_url`, and `models_url` all point at the same resolved host.
 
 ## Flags
 
@@ -82,7 +82,7 @@ For Copilot Enterprise users, `extra.api_base` will instead be `https://api.<ten
 
 ## Calling the API with the resulting token
 
-POST to `extra.chat_completions_url` (`<api_base>/chat/completions`) with:
+POST to `api.chat_url` (`<base_url>/chat/completions`) with:
 
 - `Authorization: Bearer <access_token>`
 - `content-type: application/json`
@@ -99,17 +99,21 @@ Body shape (merge `creds.body` and add `model` + `messages`):
 }
 ```
 
-Response is an SSE stream — each `data: {…}` line carries `choices[0].delta.content`, terminated by `data: [DONE]`. The list of available models for your account is at `extra.models_url`.
+Response is an SSE stream — each `data: {…}` line carries `choices[0].delta.content`, terminated by `data: [DONE]`. The list of available models for your account is at `api.models_url`.
 
 ## Refresh
 
-The `access_token` (session token) expires roughly every 30 minutes. To mint a new one, **GET** `token_url` (= `https://api.github.com/copilot_internal/v2/token`) with:
+The `access_token` (session token) expires roughly every 30 minutes. To mint a new one, **GET** `oauth.token_url` (= `https://api.github.com/copilot_internal/v2/token`) with:
 
-- `Authorization: Bearer <refresh_token>` — the long-lived `ghu_…` GitHub token (also exposed as `extra.github_token`)
+- `Authorization: Bearer <refresh_token>` — the long-lived `ghu_…` GitHub token (this is the same value as `refresh_token` at the top level)
 - `Accept: application/json`
 - The same four Copilot headers (`User-Agent`, `Editor-Version`, `Editor-Plugin-Version`, `Copilot-Integration-Id`)
 
 The response is `{ token, expires_at, … }` — drop in as your new `access_token` / `expires_at`. Note: this is **not** the standard `grant_type=refresh_token` POST; envelope readers that assume OAuth-standard refresh semantics for every provider will need a Copilot-specific branch.
+
+## Revoke
+
+`oauth.revoke_url` is `null` for GitHub Copilot. GitHub's [token-revocation API](https://docs.github.com/en/rest/apps/oauth-applications#delete-an-app-token) (`DELETE /applications/{client_id}/token`) requires HTTP Basic auth using the OAuth app's `client_id` + `client_secret` — public clients like the Copilot app don't expose a usable `client_secret`, so end users can't call it directly. To revoke, sign in to GitHub and remove the **GitHub Copilot** entry under [Settings → Applications → Authorized OAuth Apps](https://github.com/settings/applications).
 
 ## Operational notes
 

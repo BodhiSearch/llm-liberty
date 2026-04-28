@@ -17,10 +17,10 @@ A Node CLI that runs the OAuth 2.1 flows used by official LLM provider CLIs (Ope
 
 ```
 src/
-  cli.ts              # entry point — commander dispatch
+  cli.ts              # entry point — commander + PROVIDERS registry
   errors.ts           # LibertyError
-  output.ts           # JSON envelope shape + emit()
-  oauth/              # generic PKCE + localhost callback server
+  output.ts           # JSON envelope shape, BEARER_AUTH, LoginOptions, emit()
+  oauth/              # PKCE, localhost callback server, JWT decode, shared redirect flow, util
   providers/          # one file per provider (oauth flow + verify + curl example)
 docs/                 # user-facing & developer docs (see docs/index.md)
 dist/                 # tsup output, gitignored

@@ -14,12 +14,19 @@ json below is copied to clipboard
 {
   "provider": "openai-codex",
   "access_token": "<jwt>",
-  "refresh_token": "…",
+  "refresh_token": "rt_…",
   "expires_at": 1761686400,
   "auth": { "in": "header", "key": "Authorization", "scheme": "Bearer" },
-  "authorize_url": "https://auth.openai.com/oauth/authorize",
-  "token_url": "https://auth.openai.com/oauth/token",
-  "logout_url": null,
+  "oauth": {
+    "authorize_url": "https://auth.openai.com/oauth/authorize",
+    "token_url": "https://auth.openai.com/oauth/token",
+    "revoke_url": null
+  },
+  "api": {
+    "base_url": "https://chatgpt.com/backend-api/codex",
+    "chat_url": "https://chatgpt.com/backend-api/codex/responses",
+    "models_url": "https://chatgpt.com/backend-api/codex/models"
+  },
   "headers": {
     "ChatGPT-Account-ID": "user-…",
     "originator": "codex_cli_rs",
@@ -32,10 +39,7 @@ json below is copied to clipboard
     "stream": true
   },
   "extra": {
-    "id_token": "<jwt>",
-    "api_base": "https://chatgpt.com/backend-api/codex",
-    "responses_url": "https://chatgpt.com/backend-api/codex/responses",
-    "models_url": "https://chatgpt.com/backend-api/codex/models"
+    "id_token": "<jwt>"
   }
 }
 ---
@@ -67,7 +71,7 @@ curl -X POST 'https://chatgpt.com/backend-api/codex/responses' \
 
 ## Calling the API with the resulting token
 
-The ChatGPT-backed Codex API is at `https://chatgpt.com/backend-api/codex`. Every request must include:
+The ChatGPT-backed Codex API is at `api.base_url` (`https://chatgpt.com/backend-api/codex`). Every request must include:
 
 - `Authorization: Bearer <access_token>`
 - `ChatGPT-Account-ID: <value from headers>` — derived from the `id_token` claims; already included in `headers`.
@@ -77,7 +81,7 @@ The ChatGPT-backed Codex API is at `https://chatgpt.com/backend-api/codex`. Ever
 
 The envelope's `headers` field contains exactly these values — forward them verbatim on every request.
 
-For chat/inference, POST to `extra.responses_url` (`…/responses`) with `Accept: text/event-stream` and merge `body` into your request:
+For chat/inference, POST to `api.chat_url` (`…/responses`) with `Accept: text/event-stream` and merge `body` into your request:
 
 ```json
 {
@@ -102,14 +106,16 @@ Subscription OAuth has stricter rules than the public Responses API:
 - `store` must be **`false`** — server-side persistence is not available on subscription tokens.
 - `stream` must be **`true`** — subscription OAuth is SSE-only.
 
-The response is a Server-Sent Events stream. Parse `response.output_text.delta` events for incremental text and `response.completed` for the final snapshot. The defaults in `body` (`instructions`, `store`, `stream`) are merge-ready — your client just needs to add `model` and `input`.
+The response is a Server-Sent Events stream. Parse `response.output_text.delta` events for incremental text and `response.completed` for the final snapshot. The defaults in `body` (`instructions`, `store`, `stream`) are merge-ready — your client just needs to add `model` and `input`. Use `api.models_url` to enumerate available models for the account.
 
 ## Operational notes
 
 - The redirect URI is `http://localhost:1455/auth/callback` (registered with the upstream OAuth client), so port `1455` must be free when you run `login openai-codex`. If something else is bound to it, free the port (e.g. `lsof -i :1455`) and re-run.
-- `access_token` is a JWT; its `exp` claim is used for `expires_at`. Refresh by POSTing to `token_url` with:
+- `access_token` is a JWT; its `exp` claim is used for `expires_at`. **Refresh** by POSTing to `oauth.token_url` with:
   ```json
   { "grant_type": "refresh_token", "client_id": "<see source>", "refresh_token": "<…>" }
   ```
   Content-Type for refresh is `application/json` (initial exchange is `application/x-www-form-urlencoded`).
-- A ChatGPT Plus or Pro subscription is required to use the Responses API via this flow.
+- **Revoke**: OpenAI does not expose a public OAuth token-revocation endpoint for ChatGPT subscription tokens, so `oauth.revoke_url` is `null`. To invalidate a session, sign out of the device under [chatgpt.com Settings → Connected accounts](https://chatgpt.com/) or wait for natural expiry.
+- `extra.id_token` is the OpenID Connect identity token. Decode the middle segment to inspect ChatGPT plan, account id, organizations, and email — useful for debugging and identity attribution. Treat it as sensitive: it carries the same login session as `access_token`.
+- A ChatGPT Plus / Pro / Go subscription is required to use the Responses API via this flow.

@@ -1,10 +1,14 @@
-import { randomBytes } from "node:crypto";
-import { spinner } from "@clack/prompts";
-import open from "open";
 import { LibertyError } from "../errors.js";
-import { waitForCallback } from "../oauth/callback-server.js";
 import { generatePkce } from "../oauth/pkce.js";
-import { type CurlExample, emit, type ProviderCredentials } from "../output.js";
+import { runRedirectFlow } from "../oauth/redirect-flow.js";
+import { base64urlRandom, sleep } from "../oauth/util.js";
+import {
+  BEARER_AUTH,
+  type CurlExample,
+  emit,
+  type LoginOptions,
+  type ProviderCredentials,
+} from "../output.js";
 
 const CLIENT_ID = Buffer.from(
   "3638313235353830393339352d6f6f386674326f707264726e7039653361716636617633686d6469623133356a2e617070732e676f6f676c6575736572636f6e74656e742e636f6d",
@@ -12,13 +16,15 @@ const CLIENT_ID = Buffer.from(
 ).toString();
 // Google explicitly documents that the client secret of an installed-app OAuth
 // client is not actually a secret. Same single-source-in-provider policy as
-// CLIENT_ID — hex-encoded so pattern scanners don't pick it up.
+// CLIENT_ID — base64-encoded so casual greps don't pick it up.
 const CLIENT_SECRET = Buffer.from(
   "474f435350582d347548674d506d2d316f37536b2d67655636437535636c584673786c",
   "hex",
 ).toString();
+
 const AUTHORIZE_URL = "https://accounts.google.com/o/oauth2/v2/auth";
 const TOKEN_URL = "https://oauth2.googleapis.com/token";
+const REVOKE_URL = "https://oauth2.googleapis.com/revoke";
 const CALLBACK_PORT = 8085;
 const CALLBACK_PATH = "/oauth2callback";
 const REDIRECT_URI = `http://localhost:${CALLBACK_PORT}${CALLBACK_PATH}`;
@@ -29,6 +35,9 @@ const SCOPES = [
 ].join(" ");
 
 const API_BASE = "https://cloudcode-pa.googleapis.com/v1internal";
+const GENERATE_CONTENT_URL = `${API_BASE}:generateContent`;
+const STREAM_GENERATE_CONTENT_URL = `${API_BASE}:streamGenerateContent?alt=sse`;
+
 const VERIFY_MODEL = "gemini-2.5-flash";
 const VERIFY_PROMPT = "answer in one word, what day comes after Monday?";
 const ONBOARD_POLL_INTERVAL_MS = 5000;
@@ -81,47 +90,16 @@ interface GenerateContentResponse {
   };
 }
 
-export interface LoginOptions {
-  verify: boolean;
-  example: boolean;
-  clipboard: boolean;
-}
-
 export async function loginGoogleGemini(opts: LoginOptions): Promise<void> {
   const { verifier, challenge } = generatePkce();
-  const state = randomBytes(32).toString("hex");
+  const state = base64urlRandom(32);
 
-  const authUrl = buildAuthorizeUrl(challenge, state);
-  const callback = waitForCallback({ port: CALLBACK_PORT, path: CALLBACK_PATH });
-
-  const sp = spinner();
-  sp.start("Waiting for browser login…");
-
-  try {
-    await open(authUrl);
-  } catch (err) {
-    sp.stop("Failed to open browser");
-    throw new LibertyError(`Could not open the browser. Open this URL manually:\n${authUrl}`, err);
-  }
-
-  let redirectUrl: URL;
-  try {
-    redirectUrl = await callback;
-  } catch (err) {
-    sp.stop("OAuth callback failed");
-    throw err;
-  }
-
-  const code = redirectUrl.searchParams.get("code");
-  const returnedState = redirectUrl.searchParams.get("state");
-  if (!code) {
-    sp.stop("Missing authorization code");
-    throw new LibertyError("OAuth redirect did not include an authorization code.");
-  }
-  if (!returnedState || returnedState !== state) {
-    sp.stop("OAuth state mismatch");
-    throw new LibertyError("OAuth state did not match — aborting.");
-  }
+  const { code, spinner: sp } = await runRedirectFlow({
+    authUrl: buildAuthorizeUrl(challenge, state),
+    port: CALLBACK_PORT,
+    path: CALLBACK_PATH,
+    expectedState: state,
+  });
 
   sp.message("Exchanging code for token…");
   const token = await exchangeCode(code, verifier);
@@ -262,23 +240,28 @@ function buildEnvelope(token: TokenResponse, projectId: string): ProviderCredent
     access_token: token.access_token,
     refresh_token: token.refresh_token,
     expires_at: Math.floor(Date.now() / 1000) + token.expires_in,
-    auth: { in: "header", key: "Authorization", scheme: "Bearer" },
-    authorize_url: AUTHORIZE_URL,
-    token_url: TOKEN_URL,
-    logout_url: null,
+    auth: BEARER_AUTH,
+    oauth: {
+      authorize_url: AUTHORIZE_URL,
+      token_url: TOKEN_URL,
+      revoke_url: REVOKE_URL,
+    },
+    api: {
+      base_url: API_BASE,
+      chat_url: GENERATE_CONTENT_URL,
+      // Code Assist's internal API has no public model-listing endpoint.
+      models_url: null,
+    },
     headers: { ...OAUTH_HEADERS },
     body: { project: projectId },
     extra: {
-      project_id: projectId,
-      api_base: API_BASE,
-      generate_content_url: `${API_BASE}:generateContent`,
-      stream_generate_content_url: `${API_BASE}:streamGenerateContent?alt=sse`,
+      stream_chat_url: STREAM_GENERATE_CONTENT_URL,
     },
   };
 }
 
 async function verifyToken(creds: ProviderCredentials, projectId: string): Promise<void> {
-  const res = await fetch(`${API_BASE}:generateContent`, {
+  const res = await fetch(GENERATE_CONTENT_URL, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${creds.access_token}`,
@@ -314,7 +297,7 @@ async function verifyToken(creds: ProviderCredentials, projectId: string): Promi
 function buildCurlExample(creds: ProviderCredentials, projectId: string): CurlExample {
   return {
     method: "POST",
-    url: `${API_BASE}:generateContent`,
+    url: creds.api.chat_url,
     headers: {
       Authorization: `Bearer ${creds.access_token}`,
       "content-type": "application/json",
@@ -328,8 +311,4 @@ function buildCurlExample(creds: ProviderCredentials, projectId: string): CurlEx
       },
     },
   };
-}
-
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
 }

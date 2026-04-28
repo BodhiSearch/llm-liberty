@@ -19,9 +19,16 @@ json below is copied to clipboard
   "refresh_token": "1//…",
   "expires_at": 1761686400,
   "auth": { "in": "header", "key": "Authorization", "scheme": "Bearer" },
-  "authorize_url": "https://accounts.google.com/o/oauth2/v2/auth",
-  "token_url": "https://oauth2.googleapis.com/token",
-  "logout_url": null,
+  "oauth": {
+    "authorize_url": "https://accounts.google.com/o/oauth2/v2/auth",
+    "token_url": "https://oauth2.googleapis.com/token",
+    "revoke_url": "https://oauth2.googleapis.com/revoke"
+  },
+  "api": {
+    "base_url": "https://cloudcode-pa.googleapis.com/v1internal",
+    "chat_url": "https://cloudcode-pa.googleapis.com/v1internal:generateContent",
+    "models_url": null
+  },
   "headers": {
     "User-Agent": "google-api-nodejs-client/9.15.1",
     "X-Goog-Api-Client": "gl-node/22.17.0"
@@ -30,10 +37,7 @@ json below is copied to clipboard
     "project": "your-cloudaicompanion-project-id"
   },
   "extra": {
-    "project_id": "your-cloudaicompanion-project-id",
-    "api_base": "https://cloudcode-pa.googleapis.com/v1internal",
-    "generate_content_url": "https://cloudcode-pa.googleapis.com/v1internal:generateContent",
-    "stream_generate_content_url": "https://cloudcode-pa.googleapis.com/v1internal:streamGenerateContent?alt=sse"
+    "stream_chat_url": "https://cloudcode-pa.googleapis.com/v1internal:streamGenerateContent?alt=sse"
   }
 }
 ---
@@ -62,9 +66,9 @@ curl -X POST 'https://cloudcode-pa.googleapis.com/v1internal:generateContent' \
 
 ## Calling the API with the resulting token
 
-OAuth tokens issued under the gemini-cli `client_id` are scoped to a **private** Google API at `https://cloudcode-pa.googleapis.com/v1internal` — _not_ the public `https://generativelanguage.googleapis.com/v1beta` you may know from the API-key flow. Sending these tokens to the public endpoint returns `403 ACCESS_TOKEN_SCOPE_INSUFFICIENT`. Use `extra.generate_content_url` (or `extra.stream_generate_content_url` for SSE streaming).
+OAuth tokens issued under the gemini-cli `client_id` are scoped to a **private** Google API at `api.base_url` (`https://cloudcode-pa.googleapis.com/v1internal`) — _not_ the public `https://generativelanguage.googleapis.com/v1beta` you may know from the API-key flow. Sending these tokens to the public endpoint returns `403 ACCESS_TOKEN_SCOPE_INSUFFICIENT`. Use `api.chat_url` (or `extra.stream_chat_url` for SSE streaming).
 
-The internal endpoint also uses a **wrapped** request body — the user-facing `contents` / `generationConfig` go inside a `request: {…}` envelope, alongside top-level `model` and `project` fields:
+The internal endpoint uses a **wrapped** request body — the user-facing `contents` / `generationConfig` go inside a `request: {…}` envelope, alongside top-level `model` and `project` fields:
 
 ```json
 {
@@ -86,16 +90,19 @@ Required headers (forward `headers` verbatim and add `Authorization` + `content-
 - `User-Agent: google-api-nodejs-client/9.15.1`
 - `X-Goog-Api-Client: gl-node/22.17.0`
 
-For Server-Sent Events streaming, POST to `extra.stream_generate_content_url` with the same body shape and parse the `data:` lines as `GenerateContentResponse` chunks.
+For Server-Sent Events streaming, POST to `extra.stream_chat_url` with the same body shape and parse the `data:` lines as `GenerateContentResponse` chunks.
+
+`api.models_url` is `null` because Code Assist's internal API does not expose a public model-listing endpoint; the gemini-cli ships a static list. Use `gemini-2.5-flash` (small) or `gemini-2.5-pro` (large) as starting points.
 
 ## Operational notes
 
 - The redirect URI is `http://localhost:8085/oauth2callback`, so port `8085` must be free when you run `login google-gemini`. If something else is bound to it, free the port (e.g. `lsof -i :8085`) and re-run.
-- The flow requests `access_type=offline` + `prompt=consent`, so a fresh `refresh_token` is returned on every login. Refresh by POSTing to `token_url` with `application/x-www-form-urlencoded`:
+- The flow requests `access_type=offline` + `prompt=consent`, so a fresh `refresh_token` is returned on every login. **Refresh** by POSTing to `oauth.token_url` with `application/x-www-form-urlencoded`:
   ```
   grant_type=refresh_token&client_id=<…>&client_secret=<…>&refresh_token=<…>
   ```
   Both `client_id` and `client_secret` are baked into [`src/providers/google-gemini.ts`](../src/providers/google-gemini.ts) — Google explicitly documents that the client secret of an installed-app OAuth client is not actually a secret.
+- **Revoke**: POST to `oauth.revoke_url` (`https://oauth2.googleapis.com/revoke`) with `?token=<access_or_refresh_token>` — Google's standard RFC 7009 endpoint accepts either an access or refresh token and immediately invalidates it.
 - A free-tier or Google AI Pro account is required. First-time users are auto-onboarded via `:onboardUser`; this involves a long-running operation that is polled every ~5s and is reported via the spinner.
 - If `:loadCodeAssist` or `:generateContent` returns `SERVICE_DISABLED` for `cloudcode-pa.googleapis.com`, the issue is a server-side Google entitlement on your account, not the CLI — see [google-gemini/gemini-cli#25167](https://github.com/google-gemini/gemini-cli/issues/25167) for context.
 - `expires_at` is computed as `now + expires_in` from the token endpoint (typically ~1 hour). Access tokens here are opaque (not JWTs), so the expiry is taken from the OAuth response, not decoded from the token itself.

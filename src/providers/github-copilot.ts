@@ -1,7 +1,14 @@
 import { note, spinner } from "@clack/prompts";
 import open from "open";
 import { LibertyError } from "../errors.js";
-import { type CurlExample, emit, type ProviderCredentials } from "../output.js";
+import { sleep } from "../oauth/util.js";
+import {
+  BEARER_AUTH,
+  type CurlExample,
+  emit,
+  type LoginOptions,
+  type ProviderCredentials,
+} from "../output.js";
 
 const CLIENT_ID = Buffer.from("4976312e62353037613038633837656366653938", "hex").toString();
 
@@ -58,12 +65,6 @@ interface ModelListResponse {
   data?: ModelEntry[];
 }
 
-export interface LoginOptions {
-  verify: boolean;
-  example: boolean;
-  clipboard: boolean;
-}
-
 export async function loginGitHubCopilot(opts: LoginOptions): Promise<void> {
   const device = await startDeviceFlow();
 
@@ -105,7 +106,7 @@ export async function loginGitHubCopilot(opts: LoginOptions): Promise<void> {
   let pickedModel: string | null = null;
   if (opts.verify) {
     sp.message("Verifying token against GitHub Copilot API…");
-    pickedModel = await verifyToken(creds, apiBase);
+    pickedModel = await verifyToken(creds);
     sp.stop(`✓ Token verified (model: ${pickedModel})`);
   } else {
     sp.stop("✓ Token obtained (verification skipped)");
@@ -253,30 +254,45 @@ function buildEnvelope(args: BuildEnvelopeArgs): ProviderCredentials {
     access_token: args.sessionToken,
     refresh_token: args.githubToken,
     expires_at: args.expiresAtSeconds,
-    auth: { in: "header", key: "Authorization", scheme: "Bearer" },
-    authorize_url: DEVICE_CODE_URL,
-    token_url: SESSION_TOKEN_URL,
-    logout_url: null,
+    auth: BEARER_AUTH,
+    oauth: {
+      // Device-code start endpoint — closest analog to authorize_url for the
+      // device flow. The user-facing URL (verification_uri) is shown
+      // interactively during login.
+      authorize_url: DEVICE_CODE_URL,
+      // Refresh = GET this with `Authorization: Bearer <refresh_token>` (the
+      // ghu_… GitHub token). Non-standard: not the OAuth `grant_type=refresh_token`
+      // POST you'd use for the other providers.
+      token_url: SESSION_TOKEN_URL,
+      // Revoking a Copilot session token requires app credentials
+      // (DELETE /applications/{client_id}/token with HTTP Basic auth using
+      // CLIENT_ID + CLIENT_SECRET); not callable by the user with their token.
+      revoke_url: null,
+    },
+    api: {
+      base_url: args.apiBase,
+      chat_url: `${args.apiBase}/chat/completions`,
+      models_url: `${args.apiBase}/models`,
+    },
     headers: { ...COPILOT_HEADERS },
     body: { stream: true },
     extra: {
-      github_token: args.githubToken,
-      api_base: args.apiBase,
-      models_url: `${args.apiBase}/models`,
-      chat_completions_url: `${args.apiBase}/chat/completions`,
       is_enterprise: args.isEnterprise,
-      session_token_url: SESSION_TOKEN_URL,
     },
   };
 }
 
-async function verifyToken(creds: ProviderCredentials, apiBase: string): Promise<string> {
+async function verifyToken(creds: ProviderCredentials): Promise<string> {
   const headers = {
     Authorization: `Bearer ${creds.access_token}`,
     ...COPILOT_HEADERS,
   };
 
-  const modelsRes = await fetch(`${apiBase}/models`, { headers });
+  const modelsUrl = creds.api.models_url;
+  if (!modelsUrl) {
+    throw new LibertyError("internal error: github-copilot envelope missing models_url");
+  }
+  const modelsRes = await fetch(modelsUrl, { headers });
   if (!modelsRes.ok) {
     const text = await modelsRes.text().catch(() => "");
     throw new LibertyError(
@@ -291,7 +307,7 @@ async function verifyToken(creds: ProviderCredentials, apiBase: string): Promise
     );
   }
 
-  const completionRes = await fetch(`${apiBase}/chat/completions`, {
+  const completionRes = await fetch(creds.api.chat_url, {
     method: "POST",
     headers: { ...headers, "content-type": "application/json", Accept: "text/event-stream" },
     body: JSON.stringify({
@@ -358,7 +374,7 @@ async function readSseContent(res: Response): Promise<string> {
 function buildCurlExample(creds: ProviderCredentials, model: string | null): CurlExample {
   return {
     method: "POST",
-    url: String(creds.extra?.chat_completions_url ?? `${DEFAULT_API_BASE}/chat/completions`),
+    url: creds.api.chat_url,
     headers: {
       Authorization: `Bearer ${creds.access_token}`,
       "content-type": "application/json",
@@ -371,8 +387,4 @@ function buildCurlExample(creds: ProviderCredentials, model: string | null): Cur
       messages: [{ role: "user", content: VERIFY_PROMPT }],
     },
   };
-}
-
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
 }

@@ -19,9 +19,16 @@ json below is copied to clipboard
   "refresh_token": "sk-ant-ort01-…",
   "expires_at": 1761686400,
   "auth": { "in": "header", "key": "Authorization", "scheme": "Bearer" },
-  "authorize_url": "https://claude.ai/oauth/authorize",
-  "token_url": "https://platform.claude.com/v1/oauth/token",
-  "logout_url": null,
+  "oauth": {
+    "authorize_url": "https://claude.ai/oauth/authorize",
+    "token_url": "https://platform.claude.com/v1/oauth/token",
+    "revoke_url": null
+  },
+  "api": {
+    "base_url": "https://api.anthropic.com",
+    "chat_url": "https://api.anthropic.com/v1/messages",
+    "models_url": "https://api.anthropic.com/v1/models"
+  },
   "headers": {
     "anthropic-beta": "oauth-2025-04-20",
     "anthropic-version": "2023-06-01"
@@ -56,9 +63,11 @@ The Anthropic API requires every request from this OAuth client to send:
 - `anthropic-version: 2023-06-01`
 - A system message identifying the client as Claude Code, supplied via the request body's `system` field.
 
-The envelope's `headers` and `body` fields contain exactly what you need to forward — merge them into your request, add `model` + `messages`, and you're done.
+The envelope's `headers` and `body` fields contain exactly what you need to forward — merge them into your request, add `model` + `messages`, and POST to `api.chat_url` (`https://api.anthropic.com/v1/messages`). Use `api.models_url` to enumerate available models for the account.
 
 ## Operational notes
 
 - The redirect URI is fixed at `http://localhost:53692/callback` (registered with the upstream OAuth client), so port `53692` must be free when you run `login anthropic`. If something else is bound to it, free the port (e.g. `lsof -i :53692`) and re-run.
-- Refresh: POST to `token_url` with `{ grant_type: "refresh_token", client_id: <…>, refresh_token: <…> }` as JSON. The response uses the same `access_token` / `refresh_token` / `expires_in` shape as the initial exchange.
+- **Refresh**: POST to `oauth.token_url` with `{ grant_type: "refresh_token", client_id: <…>, refresh_token: <…> }` as JSON. The response uses the same `access_token` / `refresh_token` / `expires_in` shape as the initial exchange.
+- **Revoke**: Anthropic does not expose a user-callable OAuth revoke endpoint, so `oauth.revoke_url` is `null`. To invalidate a token, visit `https://claude.ai/settings/claude-code` and revoke the device manually.
+- **Third-party usage caveat**: As of early 2026 Anthropic has been restricting the use of Claude OAuth tokens by third-party tools (see the [Claude Code OAuth update](https://daveswift.com/claude-oauth-update/) discussion). Your refresh token may be revoked server-side without warning if the account flags as third-party usage; for unattended automation prefer an `sk-ant-api03-…` API key issued from the Anthropic Console.

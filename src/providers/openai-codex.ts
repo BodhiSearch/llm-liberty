@@ -1,16 +1,17 @@
-import { randomBytes } from "node:crypto";
-import { spinner } from "@clack/prompts";
-import open from "open";
 import { LibertyError } from "../errors.js";
-import { waitForCallback } from "../oauth/callback-server.js";
 import { decodeJwtPayload, jwtExpiresAt } from "../oauth/jwt.js";
 import { generatePkce } from "../oauth/pkce.js";
-import { type CurlExample, emit, type ProviderCredentials } from "../output.js";
+import { runRedirectFlow } from "../oauth/redirect-flow.js";
+import { base64urlRandom } from "../oauth/util.js";
+import {
+  BEARER_AUTH,
+  type CurlExample,
+  emit,
+  type LoginOptions,
+  type ProviderCredentials,
+} from "../output.js";
 
-const CLIENT_ID = Buffer.from(
-  "6170705f454d6f616d45455a37336630436b58615870376872616e6e",
-  "hex",
-).toString();
+const CLIENT_ID = Buffer.from("YXBwX0VNb2FtRUVaNzNmMENrWGFYcDdocmFubg==", "base64").toString();
 
 const AUTHORIZE_URL = "https://auth.openai.com/oauth/authorize";
 const TOKEN_URL = "https://auth.openai.com/oauth/token";
@@ -18,13 +19,16 @@ const CALLBACK_PORT = 1455;
 const CALLBACK_PATH = "/auth/callback";
 const REDIRECT_URI = `http://localhost:${CALLBACK_PORT}${CALLBACK_PATH}`;
 const SCOPES = "openid profile email offline_access api.connectors.read api.connectors.invoke";
+
 const API_BASE = "https://chatgpt.com/backend-api/codex";
+const RESPONSES_URL = `${API_BASE}/responses`;
+const MODELS_URL = `${API_BASE}/models`;
 const PKG_VERSION = "0.0.1";
 const ORIGINATOR = "codex_cli_rs";
 const USER_AGENT = `${ORIGINATOR}/${PKG_VERSION}`;
 const OPENAI_BETA = "responses=experimental";
 
-// namespace key for id_token claims carrying ChatGPT account info
+// id_token claim namespace carrying ChatGPT account info.
 const AUTH_CLAIM_NS = "https://api.openai.com/auth";
 
 const SYSTEM_PROMPT = "You are Codex, OpenAI's coding agent.";
@@ -46,47 +50,16 @@ interface ModelsResponse {
   models?: Array<{ id?: string; slug?: string }>;
 }
 
-export interface LoginOptions {
-  verify: boolean;
-  example: boolean;
-  clipboard: boolean;
-}
-
 export async function loginOpenAICodex(opts: LoginOptions): Promise<void> {
   const { verifier, challenge } = generatePkce(64);
   const state = base64urlRandom(32);
 
-  const authUrl = buildAuthorizeUrl(verifier, challenge, state);
-  const callback = waitForCallback({ port: CALLBACK_PORT, path: CALLBACK_PATH });
-
-  const sp = spinner();
-  sp.start("Waiting for browser login…");
-
-  try {
-    await open(authUrl);
-  } catch (err) {
-    sp.stop("Failed to open browser");
-    throw new LibertyError(`Could not open the browser. Open this URL manually:\n${authUrl}`, err);
-  }
-
-  let redirectUrl: URL;
-  try {
-    redirectUrl = await callback;
-  } catch (err) {
-    sp.stop("OAuth callback failed");
-    throw err;
-  }
-
-  const code = redirectUrl.searchParams.get("code");
-  const returnedState = redirectUrl.searchParams.get("state");
-  if (!code) {
-    sp.stop("Missing authorization code");
-    throw new LibertyError("OAuth redirect did not include an authorization code.");
-  }
-  if (!returnedState || returnedState !== state) {
-    sp.stop("OAuth state mismatch");
-    throw new LibertyError("OAuth state did not match — aborting.");
-  }
+  const { code, spinner: sp } = await runRedirectFlow({
+    authUrl: buildAuthorizeUrl(challenge, state),
+    port: CALLBACK_PORT,
+    path: CALLBACK_PATH,
+    expectedState: state,
+  });
 
   sp.message("Exchanging code for token…");
   const token = await exchangeCode(code, verifier);
@@ -116,15 +89,7 @@ export async function loginOpenAICodex(opts: LoginOptions): Promise<void> {
   await emit(creds, example, { clipboard: opts.clipboard });
 }
 
-function base64urlRandom(bytes: number): string {
-  return randomBytes(bytes)
-    .toString("base64")
-    .replace(/\+/g, "-")
-    .replace(/\//g, "_")
-    .replace(/=+$/, "");
-}
-
-function buildAuthorizeUrl(_verifier: string, challenge: string, state: string): string {
+function buildAuthorizeUrl(challenge: string, state: string): string {
   const params = new URLSearchParams({
     response_type: "code",
     client_id: CLIENT_ID,
@@ -177,10 +142,17 @@ function buildEnvelope(token: TokenResponse, accountId: string): ProviderCredent
     access_token: token.access_token,
     refresh_token: token.refresh_token,
     expires_at: jwtExpiresAt(token.access_token),
-    auth: { in: "header", key: "Authorization", scheme: "Bearer" },
-    authorize_url: AUTHORIZE_URL,
-    token_url: TOKEN_URL,
-    logout_url: null,
+    auth: BEARER_AUTH,
+    oauth: {
+      authorize_url: AUTHORIZE_URL,
+      token_url: TOKEN_URL,
+      revoke_url: null,
+    },
+    api: {
+      base_url: API_BASE,
+      chat_url: RESPONSES_URL,
+      models_url: MODELS_URL,
+    },
     headers: {
       "ChatGPT-Account-ID": accountId,
       ...OAUTH_HEADERS,
@@ -192,9 +164,6 @@ function buildEnvelope(token: TokenResponse, accountId: string): ProviderCredent
     },
     extra: {
       id_token: token.id_token,
-      api_base: API_BASE,
-      responses_url: `${API_BASE}/responses`,
-      models_url: `${API_BASE}/models`,
     },
   };
 }
@@ -205,7 +174,7 @@ async function verifyToken(creds: ProviderCredentials): Promise<string> {
     ...creds.headers,
   };
 
-  const modelsRes = await fetch(`${API_BASE}/models?client_version=${PKG_VERSION}`, { headers });
+  const modelsRes = await fetch(`${MODELS_URL}?client_version=${PKG_VERSION}`, { headers });
   if (!modelsRes.ok) {
     const text = await modelsRes.text().catch(() => "");
     throw new LibertyError(
@@ -218,7 +187,7 @@ async function verifyToken(creds: ProviderCredentials): Promise<string> {
     throw new LibertyError("token verification failed: no models returned by /models.");
   }
 
-  const responsesRes = await fetch(`${API_BASE}/responses`, {
+  const responsesRes = await fetch(RESPONSES_URL, {
     method: "POST",
     headers: {
       ...headers,
@@ -316,7 +285,7 @@ function extractFinalText(response: unknown): string {
 function buildCurlExample(creds: ProviderCredentials, model: string | null): CurlExample {
   return {
     method: "POST",
-    url: `${API_BASE}/responses`,
+    url: creds.api.chat_url,
     headers: {
       Authorization: `Bearer ${creds.access_token}`,
       "content-type": "application/json",

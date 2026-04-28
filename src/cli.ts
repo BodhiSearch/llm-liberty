@@ -1,15 +1,17 @@
 import { Command } from "commander";
 import { LibertyError } from "./errors.js";
+import type { LoginOptions } from "./output.js";
 import { loginAnthropic } from "./providers/anthropic.js";
 import { loginGitHubCopilot } from "./providers/github-copilot.js";
 import { loginGoogleGemini } from "./providers/google-gemini.js";
 import { loginOpenAICodex } from "./providers/openai-codex.js";
 
-interface LoginFlags {
-  verify: boolean;
-  example: boolean;
-  clipboard: boolean;
-}
+const PROVIDERS: Record<string, (opts: LoginOptions) => Promise<void>> = {
+  anthropic: loginAnthropic,
+  "openai-codex": loginOpenAICodex,
+  "google-gemini": loginGoogleGemini,
+  "github-copilot": loginGitHubCopilot,
+};
 
 const program = new Command();
 
@@ -20,13 +22,25 @@ program
 
 program
   .command("login <provider>")
-  .description("Run the OAuth flow for <provider> and print credentials as JSON.")
+  .description(
+    `Run the OAuth flow for <provider> and print credentials as JSON. Providers: ${Object.keys(PROVIDERS).join(", ")}.`,
+  )
   .option("--no-verify", "Skip the post-login API check that confirms the token works.")
   .option("--no-example", "Skip the curl example printed after the JSON envelope.")
   .option("--no-clipboard", "Skip copying the JSON envelope to the system clipboard.")
-  .action(async (provider: string, flags: LoginFlags) => {
+  .action(async (provider: string, flags: LoginOptions) => {
     try {
-      await dispatch(provider, flags);
+      const handler = PROVIDERS[provider];
+      if (!handler) {
+        throw new LibertyError(
+          `Unknown provider: ${provider}. Supported providers: ${Object.keys(PROVIDERS).join(", ")}.`,
+        );
+      }
+      await handler({
+        verify: flags.verify,
+        example: flags.example,
+        clipboard: flags.clipboard,
+      });
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       process.stderr.write(`${message}\n`);
@@ -36,43 +50,6 @@ program
       process.exitCode = 1;
     }
   });
-
-async function dispatch(provider: string, flags: LoginFlags): Promise<void> {
-  switch (provider) {
-    case "anthropic":
-      await loginAnthropic({
-        verify: flags.verify,
-        example: flags.example,
-        clipboard: flags.clipboard,
-      });
-      return;
-    case "openai-codex":
-      await loginOpenAICodex({
-        verify: flags.verify,
-        example: flags.example,
-        clipboard: flags.clipboard,
-      });
-      return;
-    case "google-gemini":
-      await loginGoogleGemini({
-        verify: flags.verify,
-        example: flags.example,
-        clipboard: flags.clipboard,
-      });
-      return;
-    case "github-copilot":
-      await loginGitHubCopilot({
-        verify: flags.verify,
-        example: flags.example,
-        clipboard: flags.clipboard,
-      });
-      return;
-    default:
-      throw new LibertyError(
-        `Unknown provider: ${provider}. Supported providers: anthropic, openai-codex, google-gemini, github-copilot.`,
-      );
-  }
-}
 
 await program.parseAsync();
 process.exit(process.exitCode ?? 0);

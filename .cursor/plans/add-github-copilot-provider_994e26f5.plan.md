@@ -44,7 +44,7 @@ References
 `loginGitHubCopilot({ verify, example, clipboard }: LoginOptions): Promise<void>`. Mirrors the structural conventions of [src/providers/anthropic.ts](src/providers/anthropic.ts) and [src/providers/google-gemini.ts](src/providers/google-gemini.ts) but **does not** import `pkce.ts` or `callback-server.ts` (no PKCE, no localhost callback in device flow).
 
 Constants:
-- `CLIENT_ID` — hex-encoded in source; see `src/providers/github-copilot.ts`
+- `CLIENT_ID` = `Buffer.from("SXYxLmI1MDdhMDhjODdlY2ZlOTg=", "base64").toString()` (resolves to the GitHub App id used by every official Copilot client; base64-inline per CLAUDE.md policy)
 - `DEVICE_CODE_URL` = `"https://github.com/login/device/code"`
 - `ACCESS_TOKEN_URL` = `"https://github.com/login/oauth/access_token"`
 - `SESSION_TOKEN_URL` = `"https://api.github.com/copilot_internal/v2/token"`
