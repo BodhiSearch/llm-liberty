@@ -4,7 +4,7 @@
 npx llm-liberty@latest login github-copilot
 ```
 
-Runs GitHub's [OAuth device-code flow](https://docs.github.com/en/apps/oauth-apps/building-oauth-apps/authorizing-oauth-apps#device-flow) under the well-known Copilot GitHub App, exchanges the resulting GitHub App user token (`ghu_…`) for a short-lived Copilot session token (`tid=…`) via `https://api.github.com/copilot_internal/v2/token`, auto-detects individual vs Copilot Enterprise from the session token's `proxy-ep` segment, then verifies end-to-end by streaming a one-word completion through `/chat/completions`. On success, copies the JSON envelope to the clipboard and prints it to stdout followed by `---` and a copy-pasteable streaming `curl`.
+Runs GitHub's [OAuth device-code flow](https://docs.github.com/en/apps/oauth-apps/building-oauth-apps/authorizing-oauth-apps#device-flow) under the well-known Copilot GitHub App, exchanges the resulting GitHub App user token (`ghu_…`) for a short-lived Copilot session token (`tid=…`) via `https://api.github.com/copilot_internal/v2/token`, auto-detects individual vs Copilot Enterprise from the session token's `proxy-ep` segment, then verifies end-to-end by streaming a one-word completion through `/chat/completions`. On success, copies the JSON envelope to the clipboard and prints it to stdout. Pass `--example` to also append a copy-pasteable streaming `curl`.
 
 ## How it differs from the other providers
 
@@ -13,6 +13,8 @@ Runs GitHub's [OAuth device-code flow](https://docs.github.com/en/apps/oauth-app
 - **Always streaming.** Copilot Enterprise tokens **require** `stream: true` on `/chat/completions` (non-streaming returns `400`). For consistency we also stream on individual subscriptions, so `body.stream` is `true` in every envelope and the `curl` example demonstrates SSE.
 
 ## Example output
+
+With `--example` you'll also see a streaming `curl` block appended after the JSON envelope:
 
 ```text
 GitHub device login
@@ -77,8 +79,8 @@ For Copilot Enterprise users, `api.base_url` will instead be `https://api.<tenan
 ## Flags
 
 - `--no-verify` — skip the post-login streaming `/chat/completions` smoke test (offline / CI use). The device flow + session-token exchange still run, since both are needed to produce the credential.
-- `--no-example` — suppress the `---` separator and `curl` block; stdout becomes pure JSON for piping.
-- `--no-clipboard` — skip copying the JSON envelope to the system clipboard; stdout reverts to the plain `{…}\n---\ncurl` layout.
+- `--example` — also print a `---` separator and a copy-pasteable streaming `curl` example after the JSON envelope. Off by default.
+- `--no-clipboard` — skip copying the JSON envelope to the system clipboard; stdout becomes the plain JSON envelope (or `{…}\n---\ncurl` when combined with `--example`).
 
 ## Calling the API with the resulting token
 

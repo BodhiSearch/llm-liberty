@@ -62,21 +62,21 @@ By default `login` copies the JSON envelope to the system clipboard and writes:
 json below is copied to clipboard
 ---
 <JSON envelope>
+```
+
+Pass `--example` to also append a copy-pasteable curl block:
+
+```
+json below is copied to clipboard
 ---
-<copy-pasteable curl block>
-```
-
-Pass `--no-clipboard` to skip the clipboard copy; the leading preamble is suppressed and stdout becomes:
-
-```
 <JSON envelope>
 ---
 <copy-pasteable curl block>
 ```
 
-Pass `--no-example` to suppress the `---` separator and curl block entirely.
+Pass `--no-clipboard` to skip the clipboard copy; the leading preamble is suppressed and stdout becomes just the JSON envelope (or `{…}\n---\ncurl` when combined with `--example`).
 
-Combining both (`--no-clipboard --no-example`) gives pure JSON for piping into `jq`, files, or downstream programs.
+For pure JSON suitable for piping into `jq`, files, or downstream programs, pass `--no-clipboard`.
 
 Human-readable progress (spinners, `✓ Token verified`, error messages) goes to **stderr** and never to stdout. If the clipboard is unavailable (e.g. Linux without xsel/xclip installed), a warning is printed to **stderr** and the preamble is omitted — the login still succeeds.
 

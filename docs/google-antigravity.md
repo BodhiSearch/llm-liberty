@@ -4,13 +4,15 @@
 npx llm-liberty@latest login google-antigravity
 ```
 
-Runs the [Google Antigravity](https://antigravity.google) IDE OAuth flow in your default browser, exchanges the auth code for tokens, calls Cloud Code Assist's `loadCodeAssist` (and `onboardUser` for first-time users) to discover the `cloudaicompanionProject` your account is bound to, then verifies the result by sending a one-word prompt to `gemini-3-flash` via `cloudcode-pa.googleapis.com/v1internal:generateContent`. On success, copies the JSON envelope to the clipboard and prints it to stdout followed by `---` and a copy-pasteable `curl`.
+Runs the [Google Antigravity](https://antigravity.google) IDE OAuth flow in your default browser, exchanges the auth code for tokens, calls Cloud Code Assist's `loadCodeAssist` (and `onboardUser` for first-time users) to discover the `cloudaicompanionProject` your account is bound to, then verifies the result by sending a one-word prompt to `gemini-3-flash` via `cloudcode-pa.googleapis.com/v1internal:generateContent`. On success, copies the JSON envelope to the clipboard and prints it to stdout. Pass `--example` to also append a copy-pasteable `curl`.
 
 The project-discovery step runs **even with `--no-verify`** — every API call requires the project id in the request body, so it is part of the credential, not a smoke check.
 
 Antigravity is Google's unified-gateway product: a single Gemini-style API that fans out to Gemini, Anthropic Claude, and other model backends. The same OAuth token reaches all of them — just change the `model` field in the request body.
 
 ## Example output
+
+With `--example` you'll also see a `curl` block appended after the JSON envelope:
 
 ```text
 json below is copied to clipboard
@@ -70,8 +72,8 @@ curl -X POST 'https://cloudcode-pa.googleapis.com/v1internal:generateContent' \
 ## Flags
 
 - `--no-verify` — skip the post-login `:generateContent` smoke test (offline / CI use). The `loadCodeAssist` + onboarding step still runs because the project id is part of the credential.
-- `--no-example` — suppress the `---` separator and `curl` block; stdout becomes pure JSON for piping.
-- `--no-clipboard` — skip copying the JSON envelope to the system clipboard; stdout reverts to the plain `{…}\n---\ncurl` layout.
+- `--example` — also print a `---` separator and a copy-pasteable `curl` example after the JSON envelope. Off by default.
+- `--no-clipboard` — skip copying the JSON envelope to the system clipboard; stdout becomes the plain JSON envelope (or `{…}\n---\ncurl` when combined with `--example`).
 
 ## Calling the API with the resulting token
 

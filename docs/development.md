@@ -45,7 +45,7 @@ pnpm build && node dist/cli.js --help
 3. For redirect-based flows, call `runRedirectFlow` from `src/oauth/redirect-flow.ts` — it bundles PKCE, browser launch, the localhost callback server, and code+state validation. Use `src/oauth/pkce.ts`, `src/oauth/util.ts` (`base64urlRandom`, `sleep`), and `src/oauth/jwt.ts` as needed.
 4. Build the envelope conforming to [`docs/output-contract.md`](output-contract.md). Use the `BEARER_AUTH` constant from `src/output.ts` for the `auth` field and populate the structured `oauth` and `api` groups. Populate `headers` and `body` with whatever the provider's API filters on; only put truly provider-specific fields in `extra`.
 5. Implement a `verify` step that proves the token works end-to-end — for chat providers, list models (via `api.models_url` if exposed), pick a small/cheap one, send a one-word prompt, assert the response. The `--no-verify` flag skips it.
-6. Build a `curl` example with `buildCurlExample(creds, model | null)` so users can copy-paste a working request. Always pull the URL from `creds.api.chat_url` so the example stays in sync with the envelope. The `--no-example` flag skips it.
+6. Build a `curl` example with `buildCurlExample(creds, model | null)` so users can copy-paste a working request. Always pull the URL from `creds.api.chat_url` so the example stays in sync with the envelope. The curl block is gated behind the `--example` flag (off by default).
 7. Wire the new provider into the `PROVIDERS` registry in `src/cli.ts`.
 8. Add user docs at `docs/<name>.md` and link it from `docs/index.md` and `README.md`'s "Supported providers" list.
 9. `pnpm changeset` — minor bump, summary "Add `<name>` OAuth login provider".

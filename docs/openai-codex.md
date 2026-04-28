@@ -4,9 +4,11 @@
 npx llm-liberty@latest login openai-codex
 ```
 
-Runs the "Sign in with ChatGPT" OAuth flow used by the open-source [Codex CLI](https://github.com/openai/codex) in your default browser, exchanges the auth code for tokens, then verifies the result by calling the `/models` endpoint and sending a one-word prompt through `/responses` (SSE). On success, copies the JSON envelope to the clipboard and prints it to stdout followed by `---` and a copy-pasteable `curl`.
+Runs the "Sign in with ChatGPT" OAuth flow used by the open-source [Codex CLI](https://github.com/openai/codex) in your default browser, exchanges the auth code for tokens, then verifies the result by calling the `/models` endpoint and sending a one-word prompt through `/responses` (SSE). On success, copies the JSON envelope to the clipboard and prints it to stdout. Pass `--example` to also append a copy-pasteable `curl`.
 
 ## Example output
+
+With `--example` you'll also see a `curl` block appended after the JSON envelope:
 
 ```text
 json below is copied to clipboard
@@ -66,8 +68,8 @@ curl -X POST 'https://chatgpt.com/backend-api/codex/responses' \
 ## Flags
 
 - `--no-verify` — skip the post-login API check (offline / CI use).
-- `--no-example` — suppress the `---` separator and `curl` block; stdout becomes pure JSON for piping.
-- `--no-clipboard` — skip copying the JSON envelope to the system clipboard; stdout reverts to the plain `{…}\n---\ncurl` layout.
+- `--example` — also print a `---` separator and a copy-pasteable `curl` example after the JSON envelope. Off by default.
+- `--no-clipboard` — skip copying the JSON envelope to the system clipboard; stdout becomes the plain JSON envelope (or `{…}\n---\ncurl` when combined with `--example`).
 
 ## Calling the API with the resulting token
 

@@ -4,11 +4,11 @@
 npx llm-liberty@latest login anthropic
 ```
 
-Runs the Claude Code OAuth flow in your default browser, exchanges the auth code for tokens, then verifies the result by calling `/v1/models`, picking the latest Haiku, and asking it "what day comes after Monday?". On success, prints the JSON envelope on stdout followed by `---` and a copy-pasteable `curl` you can re-run any time.
+Runs the Claude Code OAuth flow in your default browser, exchanges the auth code for tokens, then verifies the result by calling `/v1/models`, picking the latest Haiku, and asking it "what day comes after Monday?". On success, prints the JSON envelope to stdout. Pass `--example` to also append a copy-pasteable `curl`.
 
 ## Example output
 
-The JSON envelope is copied to the clipboard by default (`--no-clipboard` to opt out).
+The JSON envelope is copied to the clipboard by default (`--no-clipboard` to opt out). With `--example` you'll also see a `curl` block appended:
 
 ```text
 json below is copied to clipboard
@@ -51,8 +51,8 @@ curl -X POST 'https://api.anthropic.com/v1/messages' \
 ## Flags
 
 - `--no-verify` — skip the post-login API check (offline / CI use).
-- `--no-example` — suppress the `---` separator and `curl` block; stdout becomes pure JSON for piping.
-- `--no-clipboard` — skip copying the JSON envelope to the system clipboard; stdout reverts to the plain `{…}\n---\ncurl` layout.
+- `--example` — also print a `---` separator and a copy-pasteable `curl` example after the JSON envelope. Off by default.
+- `--no-clipboard` — skip copying the JSON envelope to the system clipboard; stdout becomes the plain JSON envelope (or `{…}\n---\ncurl` when combined with `--example`).
 
 ## Calling the API with the resulting token
 

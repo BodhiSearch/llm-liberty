@@ -28,7 +28,7 @@ program
     `Run the OAuth flow for <provider> and print credentials as JSON. Providers: ${Object.keys(PROVIDERS).join(", ")}.`,
   )
   .option("--no-verify", "Skip the post-login API check that confirms the token works.")
-  .option("--no-example", "Skip the curl example printed after the JSON envelope.")
+  .option("--example", "Also print a copy-pasteable curl example after the JSON envelope.", false)
   .option("--no-clipboard", "Skip copying the JSON envelope to the system clipboard.")
   .action(async (provider: string, flags: LoginOptions) => {
     try {
