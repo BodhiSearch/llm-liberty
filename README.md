@@ -7,7 +7,7 @@
 ## Quick start
 
 ```bash
-npx llm-liberty@latest login <provider>
+npx @bodhiapp/llm-liberty@latest login <provider>
 ```
 
 Opens your default browser to the provider's OAuth page, runs a local HTTP server to catch the redirect, exchanges the auth code for tokens, and prints everything you need to call the provider's API directly.
@@ -38,4 +38,4 @@ MIT — see [LICENSE](./LICENSE).
 
 ## Sister project
 
-`llm-liberty` is a sibling of [Bodhi App](https://github.com/BodhiSearch/BodhiApp) — same mission (democratize access to LLMs), independent codebase.
+`@bodhiapp/llm-liberty` is a sibling of [Bodhi App](https://github.com/BodhiSearch/BodhiApp) — same mission (democratize access to LLMs), independent codebase.

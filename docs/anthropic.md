@@ -1,7 +1,7 @@
 # Anthropic (Claude / Claude Code)
 
 ```bash
-npx llm-liberty@latest login anthropic
+npx @bodhiapp/llm-liberty@latest login anthropic
 ```
 
 Runs the Claude Code OAuth flow in your default browser, exchanges the auth code for tokens, then verifies the result by calling `/v1/models`, picking the latest Haiku, and asking it "what day comes after Monday?". On success, prints the JSON envelope to stdout. Pass `--example` to also append a copy-pasteable `curl`.

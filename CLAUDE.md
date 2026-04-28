@@ -11,7 +11,7 @@ A Node CLI that runs the OAuth 2.1 flows used by official LLM provider CLIs (Ope
 - **Bundler**: tsup (esbuild) → single-file `dist/cli.js` with `#!/usr/bin/env node` banner
 - **CLI parsing**: commander · **Prompts**: @clack/prompts · **Browser launcher**: open
 - **Test**: vitest · **Lint/format**: Biome · **Package manager**: pnpm
-- **Release**: Changesets + GitHub Actions → npm. Primary invocation: `npx llm-liberty@latest <args>`
+- **Release**: `just release` → git tag push → GitHub Actions → npm (`@bodhiapp/llm-liberty`). Changesets used for authoring change entries. Primary invocation: `npx @bodhiapp/llm-liberty@latest <args>`
 
 ## Repo layout
 
@@ -22,8 +22,11 @@ src/
   output.ts           # JSON envelope shape, BEARER_AUTH, LoginOptions, emit()
   oauth/              # PKCE, localhost callback server, JWT decode, shared redirect flow, util
   providers/          # one file per provider (oauth flow + verify + curl example)
+scripts/              # release pre-check scripts (zero-dep Node ESM, .mjs)
 docs/                 # user-facing & developer docs (see docs/index.md)
 dist/                 # tsup output, gitignored
+justfile              # release recipe: just release
+.github/workflows/    # publish.yml — triggered on v* tag push
 ```
 
 Single package — not a workspace. If we later want to expose the OAuth flows as a library, split into `packages/core` + `packages/cli`. Don't pre-split.

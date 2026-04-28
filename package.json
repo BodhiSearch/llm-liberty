@@ -1,9 +1,15 @@
 {
-  "name": "llm-liberty",
+  "name": "@bodhiapp/llm-liberty",
   "version": "0.0.1",
   "description": "Free your LLM subscription — extract OAuth tokens from provider CLIs (OpenAI, Anthropic, Gemini, Copilot, …) for use in your own apps.",
   "type": "module",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/BodhiSearch/llm-liberty"
+  },
+  "homepage": "https://github.com/BodhiSearch/llm-liberty#readme",
+  "bugs": "https://github.com/BodhiSearch/llm-liberty/issues",
   "engines": {
     "node": ">=22"
   },
@@ -15,6 +21,9 @@
     "README.md",
     "LICENSE"
   ],
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
     "build": "tsup",
     "dev": "tsup --watch",
@@ -26,7 +35,7 @@
     "lint": "biome check .",
     "format": "biome format --write . && prettier --write '**/*.md'",
     "changeset": "changeset",
-    "release": "pnpm build && changeset publish",
+    "release": "just release",
     "prepublishOnly": "pnpm build",
     "prepare": "husky"
   },

@@ -1,7 +1,7 @@
 # Google Antigravity (IDE / Cloud Code Assist Unified Gateway)
 
 ```bash
-npx llm-liberty@latest login google-antigravity
+npx @bodhiapp/llm-liberty@latest login google-antigravity
 ```
 
 Runs the [Google Antigravity](https://antigravity.google) IDE OAuth flow in your default browser, exchanges the auth code for tokens, calls Cloud Code Assist's `loadCodeAssist` (and `onboardUser` for first-time users) to discover the `cloudaicompanionProject` your account is bound to, then verifies the result by sending a one-word prompt to `gemini-3-flash` via `cloudcode-pa.googleapis.com/v1internal:generateContent`. On success, copies the JSON envelope to the clipboard and prints it to stdout. Pass `--example` to also append a copy-pasteable `curl`.

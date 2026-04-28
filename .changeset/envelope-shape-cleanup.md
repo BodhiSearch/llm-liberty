@@ -1,5 +1,5 @@
 ---
-"llm-liberty": minor
+"@bodhiapp/llm-liberty": minor
 ---
 
 Restructure the JSON envelope for clarity and consistency across providers:

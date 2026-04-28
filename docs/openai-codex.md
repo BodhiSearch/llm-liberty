@@ -1,7 +1,7 @@
 # OpenAI Codex (ChatGPT / Codex CLI)
 
 ```bash
-npx llm-liberty@latest login openai-codex
+npx @bodhiapp/llm-liberty@latest login openai-codex
 ```
 
 Runs the "Sign in with ChatGPT" OAuth flow used by the open-source [Codex CLI](https://github.com/openai/codex) in your default browser, exchanges the auth code for tokens, then verifies the result by calling the `/models` endpoint and sending a one-word prompt through `/responses` (SSE). On success, copies the JSON envelope to the clipboard and prints it to stdout. Pass `--example` to also append a copy-pasteable `curl`.

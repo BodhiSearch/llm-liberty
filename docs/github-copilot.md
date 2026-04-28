@@ -1,7 +1,7 @@
 # GitHub Copilot
 
 ```bash
-npx llm-liberty@latest login github-copilot
+npx @bodhiapp/llm-liberty@latest login github-copilot
 ```
 
 Runs GitHub's [OAuth device-code flow](https://docs.github.com/en/apps/oauth-apps/building-oauth-apps/authorizing-oauth-apps#device-flow) under the well-known Copilot GitHub App, exchanges the resulting GitHub App user token (`ghu_…`) for a short-lived Copilot session token (`tid=…`) via `https://api.github.com/copilot_internal/v2/token`, auto-detects individual vs Copilot Enterprise from the session token's `proxy-ep` segment, then verifies end-to-end by streaming a one-word completion through `/chat/completions`. On success, copies the JSON envelope to the clipboard and prints it to stdout. Pass `--example` to also append a copy-pasteable streaming `curl`.

@@ -10,19 +10,19 @@ Requires Node ≥22 and pnpm.
 
 ## Scripts
 
-| Command              | What it does                                                                                        |
-| -------------------- | --------------------------------------------------------------------------------------------------- |
-| `pnpm cli -- <args>` | Run the CLI from source via tsx — no build needed. Example: `pnpm cli login anthropic --no-verify`. |
-| `pnpm build`         | Bundle to `dist/cli.js` via tsup (esbuild).                                                         |
-| `pnpm dev`           | tsup in watch mode.                                                                                 |
-| `pnpm start`         | Run the built bundle (`node dist/cli.js`).                                                          |
-| `pnpm test`          | vitest run.                                                                                         |
-| `pnpm test:watch`    | vitest in watch mode.                                                                               |
-| `pnpm typecheck`     | `tsc --noEmit`.                                                                                     |
-| `pnpm lint`          | `biome check .`.                                                                                    |
-| `pnpm format`        | `biome format --write .`.                                                                           |
-| `pnpm changeset`     | Add a changeset for the next release.                                                               |
-| `pnpm release`       | Build + publish (CI uses this).                                                                     |
+| Command              | What it does                                                                                                |
+| -------------------- | ----------------------------------------------------------------------------------------------------------- |
+| `pnpm cli -- <args>` | Run the CLI from source via tsx — no build needed. Example: `pnpm cli login anthropic --no-verify`.         |
+| `pnpm build`         | Bundle to `dist/cli.js` via tsup (esbuild).                                                                 |
+| `pnpm dev`           | tsup in watch mode.                                                                                         |
+| `pnpm start`         | Run the built bundle (`node dist/cli.js`).                                                                  |
+| `pnpm test`          | vitest run.                                                                                                 |
+| `pnpm test:watch`    | vitest in watch mode.                                                                                       |
+| `pnpm typecheck`     | `tsc --noEmit`.                                                                                             |
+| `pnpm lint`          | `biome check .`.                                                                                            |
+| `pnpm format`        | `biome format --write .`.                                                                                   |
+| `pnpm changeset`     | Add a changeset entry for the next release (accumulated into CHANGELOG.md).                                 |
+| `just release`       | Cut a release: pre-checks → fetch npm version → bump minor → tag → push. See [docs/release.md](release.md). |
 
 Smoke test after install:
 

@@ -1,7 +1,7 @@
 # Google Gemini (gemini-cli / Code Assist)
 
 ```bash
-npx llm-liberty@latest login google-gemini
+npx @bodhiapp/llm-liberty@latest login google-gemini
 ```
 
 Runs the [Google Gemini CLI](https://github.com/google-gemini/gemini-cli) "Sign in with Google" OAuth flow in your default browser, exchanges the auth code for tokens, calls Code Assist's `loadCodeAssist` (and `onboardUser` for first-time users) to discover the `cloudaicompanionProject` your account is bound to, then verifies the result by sending a one-word prompt to `gemini-2.5-flash` via `cloudcode-pa.googleapis.com/v1internal:generateContent`. On success, copies the JSON envelope to the clipboard and prints it to stdout. Pass `--example` to also append a copy-pasteable `curl`.
