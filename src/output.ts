@@ -19,6 +19,11 @@ export interface OauthEndpoints {
   // does not expose a user-callable revoke endpoint — token cleanup then
   // requires the user to remove the grant from the provider's web UI.
   revoke_url: string | null;
+  client_id: string;
+  // Omitted for PKCE-only public clients (Anthropic, GitHub Copilot, OpenAI
+  // Codex). Present for installed-app OAuth clients (Google providers) where
+  // the secret is needed for token refresh.
+  client_secret?: string;
 }
 
 export interface ApiEndpoints {

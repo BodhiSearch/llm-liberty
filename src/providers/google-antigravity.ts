@@ -253,6 +253,8 @@ function buildEnvelope(token: TokenResponse, projectId: string): ProviderCredent
       authorize_url: AUTHORIZE_URL,
       token_url: TOKEN_URL,
       revoke_url: REVOKE_URL,
+      client_id: CLIENT_ID,
+      client_secret: CLIENT_SECRET,
     },
     api: {
       base_url: API_BASE,

@@ -267,6 +267,7 @@ function buildEnvelope(args: BuildEnvelopeArgs): ProviderCredentials {
       // (DELETE /applications/{client_id}/token with HTTP Basic auth using
       // CLIENT_ID + CLIENT_SECRET); not callable by the user with their token.
       revoke_url: null,
+      client_id: CLIENT_ID,
     },
     api: {
       base_url: args.apiBase,

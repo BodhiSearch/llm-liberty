@@ -147,6 +147,7 @@ function buildEnvelope(token: TokenResponse, accountId: string): ProviderCredent
       authorize_url: AUTHORIZE_URL,
       token_url: TOKEN_URL,
       revoke_url: null,
+      client_id: CLIENT_ID,
     },
     api: {
       base_url: API_BASE,

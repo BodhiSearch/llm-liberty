@@ -13,7 +13,9 @@ Every successful `login` run prints a JSON object to stdout describing both the 
   "oauth": {
     "authorize_url": "https://…/oauth/authorize",
     "token_url": "https://…/oauth/token",
-    "revoke_url": "https://…/oauth/revoke"
+    "revoke_url": "https://…/oauth/revoke",
+    "client_id": "…",
+    "client_secret": "…"
   },
   "api": {
     "base_url": "https://api.example.com",
@@ -40,6 +42,8 @@ Every successful `login` run prints a JSON object to stdout describing both the 
 - `authorize_url` — where the browser sends the user to authenticate. (For device flows, this is the device-code endpoint; the user-facing URL is shown interactively during login.)
 - `token_url` — POST here to refresh the access token. The exact body depends on the provider — see each provider's docs page. (GitHub Copilot is non-standard: refresh is a `GET` with the `ghu_…` token in `Authorization`.)
 - `revoke_url` — OAuth 2.0 token-revocation endpoint (RFC 7009). `null` when the provider does not expose a user-callable revoke endpoint; in that case, revocation requires removing the grant from the provider's web UI.
+- `client_id` — the public OAuth client identifier used by the provider's official CLI. Always present. Pass this in the refresh request body — see each provider's docs page for the exact shape.
+- `client_secret` — only present for Google providers (google-gemini, google-antigravity), where Google's installed-app OAuth requires it in the refresh request. Absent for PKCE-only public clients (Anthropic, OpenAI Codex, GitHub Copilot). Check with `'client_secret' in oauth` before using.
 
 ### `api` — endpoints for actually using the token
 
