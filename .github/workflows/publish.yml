@@ -45,25 +45,17 @@ jobs:
       - name: Publish @bodhiapp/llm-liberty
         run: |
           echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > .npmrc
-          VERSION="${{ steps.version.outputs.tag_version }}"
-          if npm view "@bodhiapp/llm-liberty@$VERSION" version 2>/dev/null | grep -q "$VERSION"; then
-            echo "@bodhiapp/llm-liberty@$VERSION already published, skipping"
-          else
-            npm publish --access public --provenance
-          fi
+          sed -i 's|"name": ".*"|"name": "@bodhiapp/llm-liberty"|' package.json
+          npm publish --access public --provenance
         env:
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: Publish llm-liberty
         run: |
-          VERSION="${{ steps.version.outputs.tag_version }}"
-          if npm view "llm-liberty@$VERSION" version 2>/dev/null | grep -q "$VERSION"; then
-            echo "llm-liberty@$VERSION already published, skipping"
-          else
-            sed -i 's|"name": "@bodhiapp/llm-liberty"|"name": "llm-liberty"|' package.json
-            pnpm build
-            npm publish --access public --provenance
-          fi
+          sed -i 's|"name": "@bodhiapp/llm-liberty"|"name": "llm-liberty"|' package.json
+          pnpm build
+          npm publish --access public --provenance
+          git restore package.json
         env:
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
 
