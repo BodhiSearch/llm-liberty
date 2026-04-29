@@ -1,3 +1,4 @@
+import { isCancel, select } from "@clack/prompts";
 import { Command } from "commander";
 import { LibertyError } from "./errors.js";
 import type { LoginOptions } from "./output.js";
@@ -23,15 +24,32 @@ program
   .version("0.0.1");
 
 program
-  .command("login <provider>")
+  .command("login [provider]")
   .description(
-    `Run the OAuth flow for <provider> and print credentials as JSON. Providers: ${Object.keys(PROVIDERS).join(", ")}.`,
+    `Run the OAuth flow for <provider> and print credentials as JSON. Providers: ${Object.keys(PROVIDERS).join(", ")}. Omit <provider> to pick interactively.`,
   )
   .option("--no-verify", "Skip the post-login API check that confirms the token works.")
   .option("--example", "Also print a copy-pasteable curl example after the JSON envelope.", false)
   .option("--no-clipboard", "Skip copying the JSON envelope to the system clipboard.")
-  .action(async (provider: string, flags: LoginOptions) => {
+  .action(async (provider: string | undefined, flags: LoginOptions) => {
     try {
+      if (provider === undefined) {
+        if (!process.stdin.isTTY) {
+          throw new LibertyError(
+            `No provider specified. Supported providers: ${Object.keys(PROVIDERS).join(", ")}.`,
+          );
+        }
+        const chosen = await select({
+          message: "Choose a provider",
+          options: Object.keys(PROVIDERS).map((p) => ({ value: p, label: p })),
+        });
+        if (isCancel(chosen)) {
+          process.stderr.write("Cancelled.\n");
+          process.exitCode = 1;
+          return;
+        }
+        provider = chosen;
+      }
       const handler = PROVIDERS[provider];
       if (!handler) {
         throw new LibertyError(
