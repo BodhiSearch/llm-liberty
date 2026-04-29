@@ -72,10 +72,14 @@ export async function emit(
   }
 
   if (copied) {
-    process.stdout.write("json below is copied to clipboard, you can use it in BodhiApp (https://getbodhi.app) to add it as an api model.\n");
+    process.stdout.write(
+      "json below is copied to clipboard, you can use it in BodhiApp (https://getbodhi.app) to add it as an api model.\n",
+    );
     process.stdout.write("---\n");
   } else {
-    process.stdout.write("you can use the json below in BodhiApp (https://getbodhi.app) to add it as an api model.\n");
+    process.stdout.write(
+      "you can use the json below in BodhiApp (https://getbodhi.app) to add it as an api model.\n",
+    );
     process.stdout.write("---\n");
   }
   process.stdout.write(`${json}\n`);
