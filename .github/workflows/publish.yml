@@ -42,17 +42,40 @@ jobs:
 
       - run: pnpm build
 
-      - name: Publish
+      - name: Publish @bodhiapp/llm-liberty
         run: |
           echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > .npmrc
           npm publish --access public --provenance
         env:
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
 
-      - name: Verify publish
+      - name: Publish llm-liberty
         run: |
-          sleep 10
-          npm view @bodhiapp/llm-liberty@${{ steps.version.outputs.tag_version }} version
+          sed -i 's|"name": "@bodhiapp/llm-liberty"|"name": "llm-liberty"|' package.json
+          pnpm build
+          npm publish --access public --provenance
+        env:
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Verify both packages published
+        run: |
+          VERSION="${{ steps.version.outputs.tag_version }}"
+          START=$(date +%s)
+          while true; do
+            ELAPSED=$(( $(date +%s) - START ))
+            if [ "$ELAPSED" -ge 120 ]; then
+              echo "Timeout: packages not visible on npm after 120s"
+              exit 1
+            fi
+            PKG1=$(npm view "@bodhiapp/llm-liberty@$VERSION" version 2>/dev/null || true)
+            PKG2=$(npm view "llm-liberty@$VERSION" version 2>/dev/null || true)
+            if [ -n "$PKG1" ] && [ -n "$PKG2" ]; then
+              echo "@bodhiapp/llm-liberty@$VERSION ✓"
+              echo "llm-liberty@$VERSION ✓"
+              break
+            fi
+            echo "[$ELAPSED s] waiting for both packages..."
+          done
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v3
@@ -60,7 +83,9 @@ jobs:
           tag_name: ${{ github.ref_name }}
           name: Release ${{ github.ref_name }}
           body: |
-            Published [@bodhiapp/llm-liberty@${{ steps.version.outputs.tag_version }}](https://www.npmjs.com/package/@bodhiapp/llm-liberty/v/${{ steps.version.outputs.tag_version }}) to npm.
+            Published to npm:
+            - [@bodhiapp/llm-liberty@${{ steps.version.outputs.tag_version }}](https://www.npmjs.com/package/@bodhiapp/llm-liberty/v/${{ steps.version.outputs.tag_version }})
+            - [llm-liberty@${{ steps.version.outputs.tag_version }}](https://www.npmjs.com/package/llm-liberty/v/${{ steps.version.outputs.tag_version }})
           draft: false
           prerelease: false
         env:
