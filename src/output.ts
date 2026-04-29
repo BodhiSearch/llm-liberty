@@ -58,7 +58,7 @@ export async function emit(
   example: CurlExample | null,
   opts: { clipboard: boolean },
 ): Promise<void> {
-  const json = JSON.stringify(creds, null, 2);
+  const json = JSON.stringify({ version: "1.0.0", ...creds }, null, 2);
   let copied = false;
 
   if (opts.clipboard) {

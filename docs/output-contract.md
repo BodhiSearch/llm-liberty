@@ -4,6 +4,7 @@ Every successful `login` run prints a JSON object to stdout describing both the 
 
 ```json
 {
+  "version": "1.0.0",
   "provider": "anthropic",
   "access_token": "…",
   "refresh_token": "…",
@@ -28,6 +29,7 @@ Every successful `login` run prints a JSON object to stdout describing both the 
 
 ### Top-level
 
+- `version` — envelope schema version (`"1.0.0"`). Downstream consumers can check this and fail fast on a major-version bump that signals a breaking change.
 - `provider` — short id matching the subcommand (`anthropic`, `openai-codex`, `google-gemini`, `github-copilot`).
 - `access_token` / `refresh_token` — tokens as returned by the provider's token endpoint.
 - `expires_at` — Unix epoch seconds at which `access_token` becomes invalid.
@@ -82,4 +84,4 @@ Human-readable progress (spinners, `✓ Token verified`, error messages) goes to
 
 ## Stability
 
-Project is still evolving, so the contract is not fixed and can break. Freeze at a given version if you find contract breakage in recent versions, or update your parsing logic.
+The envelope is versioned via the top-level `version` field (semver). A major-version bump signals a breaking change; consumers should check `version` and fail fast on mismatch. Minor/patch bumps are additive only.
