@@ -58,6 +58,9 @@ interface SessionTokenResponse {
 
 interface ModelEntry {
   id: string;
+  capabilities?: {
+    type?: string;
+  };
 }
 
 interface ModelListResponse {
@@ -105,8 +108,15 @@ export async function loginGitHubCopilot(opts: LoginOptions): Promise<void> {
   let pickedModel: string | null = null;
   if (opts.verify) {
     sp.message("Verifying token against GitHub Copilot API…");
-    pickedModel = await verifyToken(creds);
-    sp.stop(`✓ Token verified (model: ${pickedModel})`);
+    const { model, error } = await verifyToken(creds);
+    pickedModel = model;
+    if (error) {
+      sp.stop(`⚠ Token obtained but verification failed`);
+      process.stderr.write(`token verification failed: ${error}\n`);
+      process.exitCode = 1;
+    } else {
+      sp.stop(`✓ Token verified (model: ${pickedModel})`);
+    }
   } else {
     sp.stop("✓ Token obtained (verification skipped)");
   }
@@ -282,7 +292,7 @@ function buildEnvelope(args: BuildEnvelopeArgs): ProviderCredentials {
   };
 }
 
-async function verifyToken(creds: ProviderCredentials): Promise<string> {
+async function verifyToken(creds: ProviderCredentials): Promise<{ model: string | null; error: string | null }> {
   const headers = {
     Authorization: `Bearer ${creds.access_token}`,
     ...COPILOT_HEADERS,
@@ -290,22 +300,19 @@ async function verifyToken(creds: ProviderCredentials): Promise<string> {
 
   const modelsUrl = creds.api.models_url;
   if (!modelsUrl) {
-    throw new LibertyError("internal error: github-copilot envelope missing models_url");
+    return { model: null, error: "github-copilot envelope missing models_url" };
   }
   const modelsRes = await fetch(modelsUrl, { headers });
   if (!modelsRes.ok) {
     const text = await modelsRes.text().catch(() => "");
-    throw new LibertyError(
-      `token verification failed: GET /models returned ${modelsRes.status} ${modelsRes.statusText} ${text}`.trim(),
-    );
+    return { model: null, error: `GET /models returned ${modelsRes.status} ${modelsRes.statusText} ${text}`.trim() };
   }
   const models = (await modelsRes.json()) as ModelListResponse;
   const model = pickModel(models.data ?? []);
   if (!model) {
-    throw new LibertyError(
-      "token verification failed: /models returned no models for this account.",
-    );
+    return { model: null, error: "/models returned no usable chat models for this account" };
   }
+  process.stderr.write(`selected model for verification: ${model}\n`);
 
   const completionRes = await fetch(creds.api.chat_url, {
     method: "POST",
@@ -318,28 +325,33 @@ async function verifyToken(creds: ProviderCredentials): Promise<string> {
   });
   if (!completionRes.ok) {
     const text = await completionRes.text().catch(() => "");
-    throw new LibertyError(
-      `token verification failed: POST /chat/completions returned ${completionRes.status} ${completionRes.statusText} ${text}`.trim(),
-    );
+    return { model, error: `POST /chat/completions returned ${completionRes.status} ${completionRes.statusText} ${text}`.trim() };
   }
 
   const text = await readSseContent(completionRes);
   if (!/tuesday/i.test(text)) {
-    throw new LibertyError(
-      `token verification failed: expected response to mention "tuesday", got: ${text || "<empty>"}`,
-    );
+    return { model, error: `expected response to mention "tuesday", got: ${text || "<empty>"}` };
   }
-  return model;
+  return { model, error: null };
 }
 
 function pickModel(models: ModelEntry[]): string | null {
-  const ids = models.map((m) => m.id).filter((id): id is string => typeof id === "string");
+  // Prefer models with explicit chat capability; fall back to full list.
+  const chatModels = models.filter((m) => m.capabilities?.type === "chat");
+  const pool = chatModels.length > 0 ? chatModels : models;
+  const ids = pool.map((m) => m.id).filter((id): id is string => typeof id === "string");
   if (ids.length === 0) return null;
-  // Cheapest-first cascade: nano < mini < anything.
+  // Cheapest/most-available first for Copilot individual plans.
+  const gpt4oMini = ids.find((id) => id === "gpt-4o-mini");
+  if (gpt4oMini) return gpt4oMini;
+  const mini = ids.find((id) => /\bgpt.*mini\b/i.test(id));
+  if (mini) return mini;
+  const gpt4o = ids.find((id) => id === "gpt-4o");
+  if (gpt4o) return gpt4o;
   const nano = ids.find((id) => /nano/i.test(id));
   if (nano) return nano;
-  const mini = ids.find((id) => /mini/i.test(id));
-  if (mini) return mini;
+  const anyMini = ids.find((id) => /mini/i.test(id));
+  if (anyMini) return anyMini;
   return ids[0] ?? null;
 }
 
