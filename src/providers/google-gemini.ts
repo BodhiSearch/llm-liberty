@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { LibertyError } from "../errors.js";
 import { generatePkce } from "../oauth/pkce.js";
 import { runRedirectFlow } from "../oauth/redirect-flow.js";
@@ -43,9 +44,22 @@ const VERIFY_PROMPT = "answer in one word, what day comes after Monday?";
 const ONBOARD_POLL_INTERVAL_MS = 5000;
 const ONBOARD_POLL_TIMEOUT_MS = 2 * 60 * 1000;
 
+// Identity used for one-shot OAuth helpers (loadCodeAssist, onboardUser, poll).
+// Google's discovery endpoints accept the OAuth-library UA cleanly.
 const OAUTH_HEADERS: Record<string, string> = {
   "User-Agent": "google-api-nodejs-client/9.15.1",
   "X-Goog-Api-Client": "gl-node/22.17.0",
+};
+
+// Identity that gemini-cli (and downstream callers like BodhiApp) must present
+// on every cloudcode-pa inference request. Google uses this triple to classify
+// the call into the free-tier "GEMINI plugin" rate-limit bucket; missing
+// Client-Metadata or the wrong User-Agent drops requests into a much stricter
+// bucket and surfaces as 429s.
+const INFERENCE_HEADERS: Record<string, string> = {
+  "User-Agent": "google-cloud-sdk vscode_cloudshelleditor/0.1",
+  "X-Goog-Api-Client": "gl-node/22.17.0",
+  "Client-Metadata": '{"ideType":"IDE_UNSPECIFIED","platform":"PLATFORM_UNSPECIFIED","pluginType":"GEMINI"}',
 };
 
 const LOAD_METADATA = {
@@ -254,10 +268,18 @@ function buildEnvelope(token: TokenResponse, projectId: string): ProviderCredent
       // Code Assist's internal API has no public model-listing endpoint.
       models_url: null,
     },
-    headers: { ...OAUTH_HEADERS },
-    body: { project: projectId },
+    headers: { ...INFERENCE_HEADERS },
+    body: {
+      project: projectId,
+      // userAgent + requestId mirror what gemini-cli puts on every
+      // streamGenerateContent call. requestId is fixed at envelope time;
+      // production callers should regenerate per request.
+      userAgent: "bodhi-app",
+      requestId: randomUUID(),
+    },
     extra: {
       stream_chat_url: STREAM_GENERATE_CONTENT_URL,
+      stream_headers: { Accept: "text/event-stream" },
     },
   };
 }
@@ -268,7 +290,7 @@ async function verifyToken(creds: ProviderCredentials, projectId: string): Promi
     headers: {
       Authorization: `Bearer ${creds.access_token}`,
       "content-type": "application/json",
-      ...OAUTH_HEADERS,
+      ...INFERENCE_HEADERS,
     },
     body: JSON.stringify({
       model: VERIFY_MODEL,
@@ -276,6 +298,8 @@ async function verifyToken(creds: ProviderCredentials, projectId: string): Promi
       request: {
         contents: [{ role: "user", parts: [{ text: VERIFY_PROMPT }] }],
       },
+      userAgent: "bodhi-app",
+      requestId: randomUUID(),
     }),
   });
   if (!res.ok) {
@@ -311,6 +335,8 @@ function buildCurlExample(creds: ProviderCredentials, projectId: string): CurlEx
       request: {
         contents: [{ role: "user", parts: [{ text: VERIFY_PROMPT }] }],
       },
+      userAgent: "bodhi-app",
+      requestId: randomUUID(),
     },
   };
 }
