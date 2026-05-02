@@ -1,6 +1,6 @@
 {
   "name": "@bodhiapp/llm-liberty",
-  "version": "0.7.0-dev",
+  "version": "0.8.0-dev",
   "description": "Free your LLM subscription — extract OAuth tokens from provider CLIs (OpenAI, Anthropic, Gemini, Copilot, …) for use in your own apps.",
   "type": "module",
   "license": "MIT",
