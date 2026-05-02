@@ -1,4 +1,3 @@
-import { randomUUID } from "node:crypto";
 import { LibertyError } from "../errors.js";
 import { generatePkce } from "../oauth/pkce.js";
 import { runRedirectFlow } from "../oauth/redirect-flow.js";
@@ -15,9 +14,7 @@ const CLIENT_ID = Buffer.from(
   "3638313235353830393339352d6f6f386674326f707264726e7039653361716636617633686d6469623133356a2e617070732e676f6f676c6575736572636f6e74656e742e636f6d",
   "hex",
 ).toString();
-// Google explicitly documents that the client secret of an installed-app OAuth
-// client is not actually a secret. Same single-source-in-provider policy as
-// CLIENT_ID — base64-encoded so casual greps don't pick it up.
+// Per Google docs, the secret of an installed-app OAuth client is not actually a secret.
 const CLIENT_SECRET = Buffer.from(
   "474f435350582d347548674d506d2d316f37536b2d67655636437535636c584673786c",
   "hex",
@@ -39,27 +36,18 @@ const API_BASE = "https://cloudcode-pa.googleapis.com/v1internal";
 const GENERATE_CONTENT_URL = `${API_BASE}:generateContent`;
 const STREAM_GENERATE_CONTENT_URL = `${API_BASE}:streamGenerateContent?alt=sse`;
 
+// gemini-2.5-flash-lite has the most generous free-tier RPM bucket for verify.
 const VERIFY_MODEL = "gemini-2.5-flash-lite";
 const VERIFY_PROMPT = "answer in one word, what day comes after Monday?";
 const ONBOARD_POLL_INTERVAL_MS = 5000;
 const ONBOARD_POLL_TIMEOUT_MS = 2 * 60 * 1000;
 
-// Identity used for one-shot OAuth helpers (loadCodeAssist, onboardUser, poll).
-// Google's discovery endpoints accept the OAuth-library UA cleanly.
-const OAUTH_HEADERS: Record<string, string> = {
-  "User-Agent": "google-api-nodejs-client/9.15.1",
-  "X-Goog-Api-Client": "gl-node/22.17.0",
-};
+// Pinned upstream @google/gemini-cli release; bump when Google rejects stale UAs.
+const GEMINI_CLI_VERSION = "0.13.0";
 
-// Identity that gemini-cli (and downstream callers like BodhiApp) must present
-// on every cloudcode-pa inference request. Google uses this triple to classify
-// the call into the free-tier "GEMINI plugin" rate-limit bucket; missing
-// Client-Metadata or the wrong User-Agent drops requests into a much stricter
-// bucket and surfaces as 429s.
-const INFERENCE_HEADERS: Record<string, string> = {
-  "User-Agent": "google-cloud-sdk vscode_cloudshelleditor/0.1",
+const GEMINI_CLI_HEADERS: Record<string, string> = {
+  "User-Agent": `GeminiCLI/${GEMINI_CLI_VERSION} (${process.platform}; ${process.arch})`,
   "X-Goog-Api-Client": "gl-node/22.17.0",
-  "Client-Metadata": '{"ideType":"IDE_UNSPECIFIED","platform":"PLATFORM_UNSPECIFIED","pluginType":"GEMINI"}',
 };
 
 const LOAD_METADATA = {
@@ -67,6 +55,11 @@ const LOAD_METADATA = {
   platform: "PLATFORM_UNSPECIFIED",
   pluginType: "GEMINI",
 };
+
+// Matches gemini-cli's non-interactive prompt id (gemini.js: Math.random().toString(16).slice(2)).
+function randomPromptId(): string {
+  return Math.random().toString(16).slice(2);
+}
 
 interface TokenResponse {
   access_token: string;
@@ -188,7 +181,7 @@ async function discoverProject(accessToken: string): Promise<string> {
   const headers: Record<string, string> = {
     Authorization: `Bearer ${accessToken}`,
     "content-type": "application/json",
-    ...OAUTH_HEADERS,
+    ...GEMINI_CLI_HEADERS,
   };
 
   const loadRes = await fetch(`${API_BASE}:loadCodeAssist`, {
@@ -268,38 +261,36 @@ function buildEnvelope(token: TokenResponse, projectId: string): ProviderCredent
       // Code Assist's internal API has no public model-listing endpoint.
       models_url: null,
     },
-    headers: { ...INFERENCE_HEADERS },
+    headers: { ...GEMINI_CLI_HEADERS },
     body: {
       project: projectId,
-      // userAgent + requestId mirror what gemini-cli puts on every
-      // streamGenerateContent call. requestId is fixed at envelope time;
-      // production callers should regenerate per request.
-      userAgent: "bodhi-app",
-      requestId: randomUUID(),
+      // Placeholder; consumers regenerate per request via extra.body_uuid_keys.
+      user_prompt_id: randomPromptId(),
     },
     extra: {
       stream_chat_url: STREAM_GENERATE_CONTENT_URL,
       stream_headers: { Accept: "text/event-stream" },
+      body_uuid_keys: ["user_prompt_id"],
     },
   };
 }
 
 async function verifyToken(creds: ProviderCredentials, projectId: string): Promise<void> {
+  // Single-call smoke test — back-to-back stream + non-stream verifies blow the free-tier quota.
   const res = await fetch(GENERATE_CONTENT_URL, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${creds.access_token}`,
       "content-type": "application/json",
-      ...INFERENCE_HEADERS,
+      ...GEMINI_CLI_HEADERS,
     },
     body: JSON.stringify({
       model: VERIFY_MODEL,
       project: projectId,
+      user_prompt_id: randomPromptId(),
       request: {
         contents: [{ role: "user", parts: [{ text: VERIFY_PROMPT }] }],
       },
-      userAgent: "bodhi-app",
-      requestId: randomUUID(),
     }),
   });
   if (!res.ok) {
@@ -332,11 +323,10 @@ function buildCurlExample(creds: ProviderCredentials, projectId: string): CurlEx
     body: {
       model: VERIFY_MODEL,
       project: projectId,
+      user_prompt_id: randomPromptId(),
       request: {
         contents: [{ role: "user", parts: [{ text: VERIFY_PROMPT }] }],
       },
-      userAgent: "bodhi-app",
-      requestId: randomUUID(),
     },
   };
 }

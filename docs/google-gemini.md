@@ -32,26 +32,30 @@ json below is copied to clipboard
     "models_url": null
   },
   "headers": {
-    "User-Agent": "google-api-nodejs-client/9.15.1",
+    "User-Agent": "GeminiCLI/0.13.0 (darwin; arm64)",
     "X-Goog-Api-Client": "gl-node/22.17.0"
   },
   "body": {
-    "project": "your-cloudaicompanion-project-id"
+    "project": "your-cloudaicompanion-project-id",
+    "user_prompt_id": "a1b2c3d4e5f6"
   },
   "extra": {
-    "stream_chat_url": "https://cloudcode-pa.googleapis.com/v1internal:streamGenerateContent?alt=sse"
+    "stream_chat_url": "https://cloudcode-pa.googleapis.com/v1internal:streamGenerateContent?alt=sse",
+    "stream_headers": { "Accept": "text/event-stream" },
+    "body_uuid_keys": ["user_prompt_id"]
   }
 }
 ---
 curl -X POST 'https://cloudcode-pa.googleapis.com/v1internal:generateContent' \
   -H 'Authorization: Bearer ya29.…' \
   -H 'content-type: application/json' \
-  -H 'User-Agent: google-api-nodejs-client/9.15.1' \
+  -H 'User-Agent: GeminiCLI/0.13.0 (darwin; arm64)' \
   -H 'X-Goog-Api-Client: gl-node/22.17.0' \
   --data-raw \
   '{
     "model": "gemini-2.5-flash",
     "project": "your-cloudaicompanion-project-id",
+    "user_prompt_id": "a1b2c3d4e5f6",
     "request": {
       "contents": [
         { "role": "user", "parts": [{ "text": "answer in one word, what day comes after Monday?" }] }
@@ -70,12 +74,13 @@ curl -X POST 'https://cloudcode-pa.googleapis.com/v1internal:generateContent' \
 
 OAuth tokens issued under the gemini-cli `client_id` are scoped to a **private** Google API at `api.base_url` (`https://cloudcode-pa.googleapis.com/v1internal`) — _not_ the public `https://generativelanguage.googleapis.com/v1beta` you may know from the API-key flow. Sending these tokens to the public endpoint returns `403 ACCESS_TOKEN_SCOPE_INSUFFICIENT`. Use `api.chat_url` (or `extra.stream_chat_url` for SSE streaming).
 
-The internal endpoint uses a **wrapped** request body — the user-facing `contents` / `generationConfig` go inside a `request: {…}` envelope, alongside top-level `model` and `project` fields:
+The internal endpoint uses a **wrapped** request body — the user-facing `contents` / `generationConfig` go inside a `request: {…}` envelope, alongside top-level `model`, `project`, and `user_prompt_id` fields:
 
 ```json
 {
   "model": "gemini-2.5-flash",
   "project": "<value from body.project>",
+  "user_prompt_id": "<fresh random hex per request>",
   "request": {
     "contents": [{ "role": "user", "parts": [{ "text": "your message here" }] }],
     "generationConfig": { "maxOutputTokens": 256 }
@@ -83,16 +88,18 @@ The internal endpoint uses a **wrapped** request body — the user-facing `conte
 }
 ```
 
-Build it from the envelope as `{ ...creds.body, model, request: { contents, ... } }` — `creds.body` already contains `project`, so you only have to add `model` and `request`.
+Build it from the envelope as `{ ...creds.body, model, user_prompt_id: freshHex(), request: { contents, ... } }` — `creds.body` already contains `project`. Regenerate `user_prompt_id` per request: `extra.body_uuid_keys` lists every body key whose value must be replaced with a fresh random value on each outbound call (real `gemini-cli` uses `Math.random().toString(16).slice(2)`).
 
 Required headers (forward `headers` verbatim and add `Authorization` + `content-type`):
 
 - `Authorization: Bearer <access_token>`
 - `content-type: application/json`
-- `User-Agent: google-api-nodejs-client/9.15.1`
+- `User-Agent: GeminiCLI/<version> (<platform>; <arch>)` — verbatim from `headers["User-Agent"]`
 - `X-Goog-Api-Client: gl-node/22.17.0`
 
-For Server-Sent Events streaming, POST to `extra.stream_chat_url` with the same body shape and parse the `data:` lines as `GenerateContentResponse` chunks.
+These match what the upstream `@google/gemini-cli` binary puts on the wire. The `User-Agent` is pinned to a known-good `gemini-cli` release; bump [`src/providers/google-gemini.ts`](../src/providers/google-gemini.ts) when Google rejects stale values.
+
+For Server-Sent Events streaming, POST to `extra.stream_chat_url` with the same body shape, also send the headers from `extra.stream_headers` (`Accept: text/event-stream`), and parse the `data:` lines as `GenerateContentResponse` chunks.
 
 `api.models_url` is `null` because Code Assist's internal API does not expose a public model-listing endpoint; the gemini-cli ships a static list. Use `gemini-2.5-flash` (small) or `gemini-2.5-pro` (large) as starting points.
 
