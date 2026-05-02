@@ -292,7 +292,9 @@ function buildEnvelope(args: BuildEnvelopeArgs): ProviderCredentials {
   };
 }
 
-async function verifyToken(creds: ProviderCredentials): Promise<{ model: string | null; error: string | null }> {
+async function verifyToken(
+  creds: ProviderCredentials,
+): Promise<{ model: string | null; error: string | null }> {
   const headers = {
     Authorization: `Bearer ${creds.access_token}`,
     ...COPILOT_HEADERS,
@@ -305,7 +307,10 @@ async function verifyToken(creds: ProviderCredentials): Promise<{ model: string 
   const modelsRes = await fetch(modelsUrl, { headers });
   if (!modelsRes.ok) {
     const text = await modelsRes.text().catch(() => "");
-    return { model: null, error: `GET /models returned ${modelsRes.status} ${modelsRes.statusText} ${text}`.trim() };
+    return {
+      model: null,
+      error: `GET /models returned ${modelsRes.status} ${modelsRes.statusText} ${text}`.trim(),
+    };
   }
   const models = (await modelsRes.json()) as ModelListResponse;
   const model = pickModel(models.data ?? []);
@@ -325,7 +330,11 @@ async function verifyToken(creds: ProviderCredentials): Promise<{ model: string 
   });
   if (!completionRes.ok) {
     const text = await completionRes.text().catch(() => "");
-    return { model, error: `POST /chat/completions returned ${completionRes.status} ${completionRes.statusText} ${text}`.trim() };
+    return {
+      model,
+      error:
+        `POST /chat/completions returned ${completionRes.status} ${completionRes.statusText} ${text}`.trim(),
+    };
   }
 
   const text = await readSseContent(completionRes);
